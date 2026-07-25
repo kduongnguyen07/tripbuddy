@@ -1,70 +1,106 @@
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Dict, Optional, Any
-import os
-import json
 
-from backend.optimizer import optimize_trip_budget, load_dataset
+from backend.catalog import CatalogRepository
+from backend.planner import PlanInfeasible, apply_swap, generate_plan, recommend_destinations, swap_options
+from backend.schemas import (
+    ApplySwapRequest,
+    GeneratePlanRequest,
+    RecommendDestinationsRequest,
+    SwapOptionsRequest,
+)
+
+
+@lru_cache
+def get_catalog() -> CatalogRepository:
+    return CatalogRepository()
+
+
+def _allowed_origins() -> list[str]:
+    configured = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    return [origin.strip() for origin in configured.split(",") if origin.strip()]
+
 
 app = FastAPI(
-    title="TripBudget AI - Optimization API",
-    description="Intelligent Linear Programming Budget Engine for Vietnam Travel",
-    version="1.0.0"
+    title="TripBudget Planning API",
+    description="Mock-data itinerary planning API for Vietnam travel.",
+    version="2.0.0",
 )
-
-# CORS middleware for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
-class PreferencesInput(BaseModel):
-    stay: Optional[float] = Field(default=1.0, ge=0.1, le=3.0, description="Stay weight preference")
-    food: Optional[float] = Field(default=1.0, ge=0.1, le=3.0, description="Food weight preference")
-    transport: Optional[float] = Field(default=1.0, ge=0.1, le=3.0, description="Transport weight preference")
-    activities: Optional[float] = Field(default=1.0, ge=0.1, le=3.0, description="Activities weight preference")
-
-class OptimizeBudgetRequest(BaseModel):
-    total_budget: float = Field(..., gt=0, description="Total budget in VND")
-    num_days: int = Field(..., ge=1, le=30, description="Number of travel days")
-    destination_id: str = Field(..., description="Destination identifier (e.g. ha-noi, da-nang, phu-quoc)")
-    preferences: Optional[PreferencesInput] = Field(default_factory=PreferencesInput)
 
 @app.get("/")
 def read_root():
-    return {
-        "app": "TripBudget AI API",
-        "status": "online",
-        "docs": "/docs"
-    }
+    catalog = get_catalog()
+    return {"app": "TripBudget Planning API", "status": "online", "docs": "/docs", "data_version": catalog.version}
+
 
 @app.get("/api/v1/destinations")
 def get_destinations():
-    data = load_dataset()
+    catalog = get_catalog()
+    destinations = []
+    for destination in catalog.destinations():
+        # A 2-day, one-person estimate keeps this endpoint independent of a trip form.
+        stay = min(service.cost_for_group(1, 1) for service in catalog.services_for(destination["id"], "stay"))
+        meals = sum(
+            min(service.cost_for_group(1) for service in catalog.services_for(destination["id"], "food") if service.time_window == slot)
+            for slot in ("breakfast", "lunch", "dinner")
+        )
+        destinations.append({**destination, "minimum_two_day_cost_vnd": stay + meals * 2})
     return {
         "status": "success",
-        "count": len(data["destinations"]),
-        "destinations": data["destinations"]
+        "count": len(destinations),
+        "destinations": destinations,
+        "data_version": catalog.version,
+        "data_source": catalog.metadata["source"],
+        "data_updated_at": catalog.metadata["updated_at"],
     }
 
-@app.post("/api/v1/optimize-budget")
-def api_optimize_budget(req: OptimizeBudgetRequest):
+
+@app.post("/api/v1/destinations/recommend")
+def recommend(request: RecommendDestinationsRequest):
+    return recommend_destinations(request, get_catalog())
+
+
+@app.post("/api/v1/plans/generate")
+def generate(request: GeneratePlanRequest):
+    catalog = get_catalog()
     try:
-        prefs = req.preferences.dict() if req.preferences else {}
-        result = optimize_trip_budget(
-            total_budget=req.total_budget,
-            num_days=req.num_days,
-            destination_id=req.destination_id,
-            preferences=prefs
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return generate_plan(request, catalog)
+    except PlanInfeasible as error:
+        return error.response(catalog)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/api/v1/plans/swap-options")
+def get_swap_options(request: SwapOptionsRequest):
+    try:
+        return swap_options(request, get_catalog())
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/v1/plans/apply-swap")
+def apply_plan_swap(request: ApplySwapRequest):
+    try:
+        return apply_swap(request, get_catalog())
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
