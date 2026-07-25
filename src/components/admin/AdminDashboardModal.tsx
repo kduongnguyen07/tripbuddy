@@ -841,7 +841,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                             <option value="HAN">HAN - Hà Nội</option>
                             <option value="HUE">HUE - Huế</option>
                             <option value="DAD">DAD - Đà Nẵng</option>
-                            <option value="DLT">DLT - Đà Lạt</option>
+                            <option value="DLD">DLD - Đà Lạt</option>
                             <option value="PQC">PQC - Phú Quốc</option>
                           </select>
                         </div>
@@ -997,7 +997,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                   {/* Destination Filter Buttons */}
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
                     <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Điểm Đến:</span>
-                    {['ALL', 'HAN', 'HUE', 'DAD', 'DLT', 'PQC'].map((code) => (
+                    {['ALL', 'HAN', 'HUE', 'DAD', 'DLD', 'PQC'].map((code) => (
                       <button
                         key={code}
                         onClick={() => setServiceDestFilter(code)}

@@ -85,7 +85,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   };
 
-  const DATASET_VERSION = 'v2.2_dataset500_full';
+  const DATASET_VERSION = 'v3.0_canonical_db_ids';
+
+  const CANONICAL_ID_MAP: Record<string, string> = {
+    'ha-noi': 'HAN',
+    'hue': 'HUE',
+    'da-nang': 'DAD',
+    'da-lat': 'DLD',
+    'DLT': 'DLD',
+    'phu-quoc': 'PQC',
+  };
 
   const [destinations, setDestinations] = useState<Destination[]>(() => {
     try {
@@ -100,10 +109,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved !== null && currentVersion === DATASET_VERSION) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length >= (destinationsData as Destination[]).length) {
-          return (parsed as Destination[]).filter((d) => !deletedSet.has(d.id));
+          const normalized = (parsed as Destination[]).map((d) => ({
+            ...d,
+            id: CANONICAL_ID_MAP[d.id] || d.id,
+          }));
+          return normalized.filter((d) => !deletedSet.has(d.id));
         }
       }
-      return (destinationsData as Destination[]).filter((d) => !deletedSet.has(d.id));
+      const defaultDests = (destinationsData as Destination[]).map((d) => ({
+        ...d,
+        id: CANONICAL_ID_MAP[d.id] || d.id,
+      }));
+      return defaultDests.filter((d) => !deletedSet.has(d.id));
     } catch {
       return destinationsData as Destination[];
     }

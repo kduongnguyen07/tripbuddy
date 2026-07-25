@@ -25,8 +25,8 @@ const DEST_ID_MAP: Record<string, DestinationId> = {
   'HAN': 'ha-noi',
   'HUE': 'hue',
   'DAD': 'da-nang',
-  'DLT': 'da-lat',
   'DLD': 'da-lat',
+  'DLT': 'da-lat',
   'PQC': 'phu-quoc',
 };
 
@@ -34,8 +34,14 @@ const DEST_CODE_MAP: Record<string, string[]> = {
   'ha-noi': ['HAN'],
   'hue': ['HUE'],
   'da-nang': ['DAD'],
-  'da-lat': ['DLT', 'DLD'],
+  'da-lat': ['DLD', 'DLT'],
   'phu-quoc': ['PQC'],
+  'HAN': ['HAN'],
+  'HUE': ['HUE'],
+  'DAD': ['DAD'],
+  'DLD': ['DLD', 'DLT'],
+  'DLT': ['DLD', 'DLT'],
+  'PQC': ['PQC'],
 };
 
 function formatDatasetService(item: any, people: number, nights: number): PlanServiceItem {
