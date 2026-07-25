@@ -12,8 +12,7 @@ import {
 } from '../types';
 import destinationsData from '../data/destinationsData.json';
 import fullDataset from '../../backend/tripbudget_full_dataset_500.json';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+import { API_BASE_URL } from '../config/apiConfig';
 
 // Mapping destination_id slug to destination details
 const DEST_ID_MAP: Record<string, DestinationId> = {

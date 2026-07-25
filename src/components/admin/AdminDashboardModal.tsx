@@ -11,6 +11,7 @@ import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
 import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -150,7 +151,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     }
 
     try {
-      await fetch('http://127.0.0.1:8000/api/v1/db/services', {
+      await fetch(`${API_BASE_URL}/db/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(itemToSave),
@@ -168,7 +169,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       saveServicesList(updated);
 
       try {
-        await fetch(`http://127.0.0.1:8000/api/v1/db/services/${id}`, { method: 'DELETE' });
+        await fetch(`${API_BASE_URL}/db/services/${id}`, { method: 'DELETE' });
       } catch (err) {
         console.log('PostgreSQL delete note:', err);
       }

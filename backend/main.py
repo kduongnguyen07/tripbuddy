@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime
 from functools import lru_cache
 
@@ -144,7 +145,7 @@ def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depe
             detail=f"Destination '{dest_id}' does not exist. Please specify a valid destination."
         )
 
-    srv_id = service_data.get("id") or f"SRV_{target_dest.code}_{int(datetime.now().timestamp())}"
+    srv_id = service_data.get("id") or f"SRV_{target_dest.code}_{int(datetime.now().timestamp() * 1000)}_{uuid.uuid4().hex[:6]}"
     db_srv = ServiceModel(
         id=srv_id,
         destination_id=target_dest.id,
@@ -187,7 +188,7 @@ def get_db_destinations(db: Session = Depends(get_db)):
 
 @app.post("/api/v1/db/destinations")
 def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Depends(get_db)):
-    dest_id = dest_data.get("id") or f"dest_{int(datetime.now().timestamp())}"
+    dest_id = dest_data.get("id") or f"dest_{int(datetime.now().timestamp() * 1000)}_{uuid.uuid4().hex[:6]}"
     db_dest = DestinationModel(
         id=dest_id,
         code=dest_data.get("code", dest_id.upper()),

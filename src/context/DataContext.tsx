@@ -3,6 +3,7 @@ import { Destination, JourneySlide, HeroConfig } from '../types';
 import destinationsData from '../data/destinationsData.json';
 import slidesData from '../data/slidesData.json';
 import { fetchCloudData, saveCloudData } from '../services/cloudStorage';
+import { API_BASE_URL } from '../config/apiConfig';
 
 export const DEFAULT_HERO_CONFIG: HeroConfig = {
   badge: 'VIỆT NAM VÀ NHỮNG CHUYẾN ĐI',
@@ -185,7 +186,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 1. Try loading destinations directly from backend Database endpoint
       try {
-        const dbRes = await fetch('http://127.0.0.1:8000/api/v1/db/destinations');
+        const dbRes = await fetch(`${API_BASE_URL}/db/destinations`);
         if (dbRes.ok) {
           const dbJson = await dbRes.json();
           if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
@@ -260,7 +261,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
-    fetch('http://127.0.0.1:8000/api/v1/db/destinations', {
+    fetch(`${API_BASE_URL}/db/destinations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dest),
@@ -275,7 +276,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
-    fetch('http://127.0.0.1:8000/api/v1/db/destinations', {
+    fetch(`${API_BASE_URL}/db/destinations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dest),
@@ -297,7 +298,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
-    fetch(`http://127.0.0.1:8000/api/v1/db/destinations/${id}`, {
+    fetch(`${API_BASE_URL}/db/destinations/${id}`, {
       method: 'DELETE',
     }).catch((e) => console.log('PostgreSQL sync info:', e));
   };
