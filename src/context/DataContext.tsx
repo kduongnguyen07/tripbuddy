@@ -85,13 +85,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   };
 
+  const DATASET_VERSION = 'v2.2_dataset500_full';
+
   const [destinations, setDestinations] = useState<Destination[]>(() => {
     try {
+      const currentVersion = localStorage.getItem('tripbudget_dataset_version');
+      if (currentVersion !== DATASET_VERSION) {
+        localStorage.removeItem('tripbudget_destinations');
+        localStorage.setItem('tripbudget_dataset_version', DATASET_VERSION);
+      }
+
       const deletedSet = new Set(getDeletedDestIds());
       const saved = localStorage.getItem('tripbudget_destinations');
-      if (saved !== null) {
+      if (saved !== null && currentVersion === DATASET_VERSION) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length >= (destinationsData as Destination[]).length) {
           return (parsed as Destination[]).filter((d) => !deletedSet.has(d.id));
         }
       }
@@ -413,6 +421,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('tripbudget_deleted_destinations');
     localStorage.removeItem('tripbudget_deleted_slides');
     localStorage.removeItem('admin_tripbudget_dataset_500');
+    localStorage.removeItem('tripbudget_dataset_version');
+    markLocalUpdate();
     notifyStateChange();
   };
 
