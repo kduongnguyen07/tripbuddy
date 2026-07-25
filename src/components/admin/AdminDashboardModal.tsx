@@ -68,27 +68,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Functional Instant Search Calculation
+  // Functional Instant Search Calculation with null guards
   const searchResults = searchQuery.trim() ? [
-    ...destinations
-      .filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()) || d.region.toLowerCase().includes(searchQuery.toLowerCase()))
-      .map(d => ({ type: 'destination' as const, id: d.id, title: d.name, subtitle: `${d.region} • ${d.activities?.length || 0} dịch vụ`, data: d })),
-    ...slides
-      .filter(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()) || s.category.toLowerCase().includes(searchQuery.toLowerCase()))
-      .map(s => ({ type: 'slide' as const, id: s.id, title: `${s.title} ${s.titleHighlight}`, subtitle: `Slide: ${s.category}`, data: s })),
-    ...(heroConfig.titleLine1.toLowerCase().includes(searchQuery.toLowerCase()) || heroConfig.titleLine2.toLowerCase().includes(searchQuery.toLowerCase()) || 'hero'.includes(searchQuery.toLowerCase()) ? [
-      { type: 'hero' as const, id: 'hero_config', title: 'Cấu Hình Hero Banner Trang Chủ', subtitle: heroConfig.badge, data: heroConfig }
+    ...(destinations || [])
+      .filter(d => (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (d.region || '').toLowerCase().includes(searchQuery.toLowerCase()))
+      .map(d => ({ type: 'destination' as const, id: d.id, title: d.name || '', subtitle: `${d.region || ''} • ${d.activities?.length || 0} dịch vụ`, data: d })),
+    ...(slides || [])
+      .filter(s => (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(searchQuery.toLowerCase()))
+      .map(s => ({ type: 'slide' as const, id: s.id, title: `${s.title || ''} ${s.titleHighlight || ''}`, subtitle: `Slide: ${s.category || ''}`, data: s })),
+    ...(heroConfig && ((heroConfig.titleLine1 || '').toLowerCase().includes(searchQuery.toLowerCase()) || (heroConfig.titleLine2 || '').toLowerCase().includes(searchQuery.toLowerCase()) || 'hero'.includes(searchQuery.toLowerCase())) ? [
+      { type: 'hero' as const, id: 'hero_config', title: 'Cấu Hình Hero Banner Trang Chủ', subtitle: heroConfig.badge || '', data: heroConfig }
     ] : [])
   ] : [];
 
   // Filtered destinations for search in Destinations tab
-  const filteredDestinations = destinations.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.region.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDestinations = (destinations || []).filter(d => 
+    (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.region || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filtered Services logic for 500 dataset tab
-  const filteredServices = servicesList.filter((item) => {
+  // Filtered Services logic for 500 dataset tab with null guards
+  const filteredServices = (servicesList || []).filter((item) => {
+    if (!item) return false;
     if (serviceDestFilter !== 'ALL' && item.destination_id !== serviceDestFilter) return false;
     if (serviceCatFilter !== 'ALL' && item.category !== serviceCatFilter) return false;
     if (serviceSearchQuery.trim()) {
@@ -96,7 +97,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       const matchName = (item.name || '').toLowerCase().includes(q);
       const matchId = (item.id || '').toLowerCase().includes(q);
       const matchSub = (item.sub_category || '').toLowerCase().includes(q);
-      const matchTags = (item.tags || []).some((t: string) => t.toLowerCase().includes(q));
+      const itemTags = Array.isArray(item.tags)
+        ? item.tags
+        : typeof item.tags === 'string'
+        ? [item.tags]
+        : [];
+      const matchTags = itemTags.some((t: any) => typeof t === 'string' && t.toLowerCase().includes(q));
       return matchName || matchId || matchSub || matchTags;
     }
     return true;
@@ -1148,7 +1154,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                             </td>
                             <td className="p-3">
                               <div className="flex flex-wrap gap-1 max-w-xs">
-                                {(srv.tags || []).slice(0, 3).map((t: string) => (
+                                {(Array.isArray(srv.tags) ? srv.tags : []).slice(0, 3).map((t: string) => (
                                   <span key={t} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">
                                     #{t}
                                   </span>
