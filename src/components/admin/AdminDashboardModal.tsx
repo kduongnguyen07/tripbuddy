@@ -61,8 +61,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   // JSON Import Text State
   const [jsonInput, setJsonInput] = useState('');
 
-  if (!isOpen) return null;
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -391,6 +389,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       showToast('Đã khôi phục dữ liệu gốc thành công!');
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md font-sans text-slate-800">
