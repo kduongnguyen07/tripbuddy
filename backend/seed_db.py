@@ -20,16 +20,15 @@ def seed_database():
             dest_path = Path(__file__).with_name("destinations.json")
 
         if dest_path.exists():
-            existing_dest_ids = set(r[0] for r in db.query(DestinationModel.id).all())
-            dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
-            new_dests = []
-            for d in dest_data:
-                dest_id = d["id"]
-                if dest_id not in existing_dest_ids:
+            dest_count = db.query(DestinationModel).count()
+            if dest_count == 0:
+                dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
+                new_dests = []
+                for d in dest_data:
                     new_dests.append(
                         DestinationModel(
-                            id=dest_id,
-                            code=d.get("code", dest_id.upper()),
+                            id=d["id"],
+                            code=d.get("code", d["id"].upper()),
                             name=d["name"],
                             region=d["region"],
                             category_type=d.get("category_type", "city"),
@@ -39,12 +38,12 @@ def seed_database():
                             description=d.get("description", ""),
                         )
                     )
-            if new_dests:
-                db.add_all(new_dests)
-                db.commit()
-                print(f"[SUCCESS] {len(new_dests)} destinations seeded cleanly into Database.")
+                if new_dests:
+                    db.add_all(new_dests)
+                    db.commit()
+                    print(f"[SUCCESS] {len(new_dests)} destinations seeded cleanly into Database.")
             else:
-                print("[INFO] Destinations already seeded in Database.")
+                print(f"[INFO] Destinations already exist in Database ({dest_count} items).")
 
         # 2. Seed 500 Services in 1 Single Fast Bulk Insert
         services_path = Path(__file__).with_name("tripbudget_full_dataset_500.json")

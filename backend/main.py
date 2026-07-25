@@ -33,10 +33,10 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins(),
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -195,11 +195,13 @@ def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Dep
 
 @app.delete("/api/v1/db/destinations/{dest_id}")
 def delete_db_destination(dest_id: str, db: Session = Depends(get_db)):
-    dest = db.query(DestinationModel).filter(DestinationModel.id == dest_id).first()
-    if dest:
+    dests = db.query(DestinationModel).filter(
+        (DestinationModel.id == dest_id) | (DestinationModel.id == dest_id.lower()) | (DestinationModel.code == dest_id.upper())
+    ).all()
+    for dest in dests:
         db.delete(dest)
-        db.query(ServiceModel).filter(ServiceModel.destination_id == dest_id).delete()
-        db.commit()
+        db.query(ServiceModel).filter(ServiceModel.destination_id == dest.id).delete()
+    db.commit()
     return {"status": "success", "message": f"Deleted destination {dest_id}"}
 
 

@@ -61,6 +61,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [theme]);
 
+  const getDeletedDestIds = (): string[] => {
+    try {
+      const saved = localStorage.getItem('tripbudget_deleted_destinations');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getDeletedSlideIds = (): string[] => {
+    try {
+      const saved = localStorage.getItem('tripbudget_deleted_slides');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
   const markLocalUpdate = () => {
     try {
       localStorage.setItem('tripbudget_last_local_update', Date.now().toString());
@@ -69,14 +87,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [destinations, setDestinations] = useState<Destination[]>(() => {
     try {
+      const deletedSet = new Set(getDeletedDestIds());
       const saved = localStorage.getItem('tripbudget_destinations');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed as Destination[];
+          return (parsed as Destination[]).filter((d) => !deletedSet.has(d.id));
         }
       }
-      return destinationsData as Destination[];
+      return (destinationsData as Destination[]).filter((d) => !deletedSet.has(d.id));
     } catch {
       return destinationsData as Destination[];
     }
@@ -84,14 +103,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [slides, setSlides] = useState<JourneySlide[]>(() => {
     try {
+      const deletedSet = new Set(getDeletedSlideIds());
       const saved = localStorage.getItem('tripbudget_slides');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed as JourneySlide[];
+          return (parsed as JourneySlide[]).filter((s) => !deletedSet.has(s.id));
         }
       }
-      return slidesData as JourneySlide[];
+      return (slidesData as JourneySlide[]).filter((s) => !deletedSet.has(s.id));
     } catch {
       return slidesData as JourneySlide[];
     }
@@ -135,6 +155,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
     const loadInitialData = async () => {
       setIsSyncingCloud(true);
+      const deletedDestsSet = new Set(getDeletedDestIds());
+      const deletedSlidesSet = new Set(getDeletedSlideIds());
 
       // 1. Try loading destinations directly from backend Database endpoint
       try {
@@ -142,9 +164,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (dbRes.ok) {
           const dbJson = await dbRes.json();
           if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
+            const filtered = dbJson.destinations.filter((d: any) => !deletedDestsSet.has(d.id));
             if (isMounted) {
-              setDestinations(dbJson.destinations);
-              localStorage.setItem('tripbudget_destinations', JSON.stringify(dbJson.destinations));
+              setDestinations(filtered);
+              localStorage.setItem('tripbudget_destinations', JSON.stringify(filtered));
             }
           }
         }
@@ -162,7 +185,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Only overwrite local state if cloud data is newer or local data has never been edited
         if (!localTime || cloudTime >= localTime) {
           if (data.slides && Array.isArray(data.slides)) {
-            setSlides(data.slides);
+            const filteredSlides = data.slides.filter((s: any) => !deletedSlidesSet.has(s.id));
+            setSlides(filteredSlides);
           }
           if (data.heroConfig && data.heroConfig.titleLine1) {
             setHeroConfig(data.heroConfig);
@@ -201,10 +225,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchFromCloud = async () => {
     setIsSyncingCloud(true);
+    const deletedDestsSet = new Set(getDeletedDestIds());
+    const deletedSlidesSet = new Set(getDeletedSlideIds());
     const data = await fetchCloudData();
     if (data) {
-      if (data.destinations && Array.isArray(data.destinations)) setDestinations(data.destinations);
-      if (data.slides && Array.isArray(data.slides)) setSlides(data.slides);
+      if (data.destinations && Array.isArray(data.destinations)) {
+        const filtered = data.destinations.filter((d: any) => !deletedDestsSet.has(d.id));
+        setDestinations(filtered);
+      }
+      if (data.slides && Array.isArray(data.slides)) {
+        const filtered = data.slides.filter((s: any) => !deletedSlidesSet.has(s.id));
+        setSlides(filtered);
+      }
       if (data.heroConfig) setHeroConfig(data.heroConfig);
       setIsCloudSynced(true);
       setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
@@ -227,6 +259,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = [dest, ...destinations];
     setDestinations(updated);
     localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+
+    // Remove from deleted blacklist if re-added
+    const deleted = getDeletedDestIds().filter((id) => id !== dest.id);
+    localStorage.setItem('tripbudget_deleted_destinations', JSON.stringify(deleted));
+
     markLocalUpdate();
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
@@ -257,6 +294,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = destinations.filter((d) => d.id !== id);
     setDestinations(updated);
     localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+
+    // Add to deleted blacklist in localStorage so reload NEVER brings it back
+    const deleted = getDeletedDestIds();
+    if (!deleted.includes(id)) {
+      localStorage.setItem('tripbudget_deleted_destinations', JSON.stringify([...deleted, id]));
+    }
+
     markLocalUpdate();
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
@@ -271,6 +315,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = [...slides, slide];
     setSlides(updated);
     localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+
+    const deleted = getDeletedSlideIds().filter((id) => id !== slide.id);
+    localStorage.setItem('tripbudget_deleted_slides', JSON.stringify(deleted));
+
     markLocalUpdate();
     pushStateToCloud(destinations, updated, heroConfig);
     notifyStateChange();
@@ -289,6 +337,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = slides.filter((s) => s.id !== id);
     setSlides(updated);
     localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+
+    const deleted = getDeletedSlideIds();
+    if (!deleted.includes(id)) {
+      localStorage.setItem('tripbudget_deleted_slides', JSON.stringify([...deleted, id]));
+    }
+
     markLocalUpdate();
     pushStateToCloud(destinations, updated, heroConfig);
     notifyStateChange();
@@ -347,6 +401,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('tripbudget_slides');
     localStorage.removeItem('tripbudget_hero');
     localStorage.removeItem('tripbudget_last_local_update');
+    localStorage.removeItem('tripbudget_deleted_destinations');
+    localStorage.removeItem('tripbudget_deleted_slides');
     localStorage.removeItem('admin_tripbudget_dataset_500');
     notifyStateChange();
   };

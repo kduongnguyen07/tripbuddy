@@ -5,7 +5,7 @@ import {
   Plus, Trash2, Edit3, Save, Check, Image as ImageIcon, BookOpen, DollarSign,
   Cloud, CloudUpload, CloudDownload, RefreshCw, Search, Bell, Calendar,
   TrendingUp, User, ChevronRight, CheckCircle2, ShieldCheck, Flame,
-  Globe, Monitor, Tablet, Smartphone, ExternalLink, Eye, Compass
+  Globe, Monitor, Tablet, Smartphone, ExternalLink, Eye, Compass, List, Grid, Star
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
@@ -59,7 +59,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   // Hero Form State
   const [heroForm, setHeroForm] = useState<HeroConfig>(heroConfig);
 
-  // Destination Edit/Add State
+  // Destination Edit/Add & View Mode State
+  const [destViewMode, setDestViewMode] = useState<'table' | 'grid'>('table');
   const [editingDest, setEditingDest] = useState<Partial<Destination> | null>(null);
   const [isNewDest, setIsNewDest] = useState(false);
 
@@ -1470,49 +1471,196 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                   </div>
                 )}
 
-                {/* Destinations Cards Grid matching Elevate style */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredDestinations.map((dest) => (
-                    <div key={dest.id} className="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
-                          <SafeImage src={dest.hero_image} alt={dest.name} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="overflow-hidden">
-                          <span className="text-[10px] font-extrabold text-lime-700 uppercase tracking-wider">{dest.region}</span>
-                          <h4 className="font-extrabold text-base text-slate-900 truncate">{dest.name}</h4>
-                          <span className="text-xs text-slate-500 block">{dest.activities?.length || 0} mục dịch vụ / giá thành</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
-                        <button
-                          onClick={() => {
-                            setEditingDest(dest);
-                            setIsNewDest(false);
-                          }}
-                          className="px-3.5 py-1.5 rounded-lg bg-slate-100 text-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Sửa</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Xóa điểm đến "${dest.name}" khỏi danh sách?`)) {
-                              deleteDestination(dest.id);
-                              showToast(`Đã xóa: ${dest.name}`);
-                            }
-                          }}
-                          className="px-3.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Xóa</span>
-                        </button>
-                      </div>
+                {/* Destinations View Switcher & Toolbar */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-100/70 p-4 rounded-2xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                      Danh Sách Điểm Đến ({filteredDestinations.length}):
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-200 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setDestViewMode('table')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          destViewMode === 'table'
+                            ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span>Bảng Chi Tiết (Table View)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDestViewMode('grid')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          destViewMode === 'grid'
+                            ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Grid className="w-3.5 h-3.5" />
+                        <span>Thẻ Khung Ảnh (Grid View)</span>
+                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm điểm đến / vùng miền..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-lime-500 shadow-sm"
+                    />
+                  </div>
                 </div>
+
+                {/* TABLE VIEW: Dedicated High-Density Destinations Table */}
+                {destViewMode === 'table' ? (
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 font-extrabold uppercase text-[11px] tracking-wider">
+                            <th className="py-3.5 px-4 text-center w-12">#</th>
+                            <th className="py-3.5 px-4 w-16">Hình Ảnh</th>
+                            <th className="py-3.5 px-4">Tên Điểm Đến & Danh Thắng</th>
+                            <th className="py-3.5 px-4">Vùng Miền</th>
+                            <th className="py-3.5 px-4 text-center">Đánh Giá (Rating)</th>
+                            <th className="py-3.5 px-4 text-center">Số Dịch Vụ & Chi Phí</th>
+                            <th className="py-3.5 px-4 text-right">Thao Tác QL</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredDestinations.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="text-center py-12 text-slate-400 italic">
+                                Không tìm thấy điểm đến nào. Hãy tạo điểm đến mới.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredDestinations.map((dest, idx) => {
+                              const rating = dest.satisfaction_scores
+                                ? ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1)
+                                : '9.2';
+                              return (
+                                <tr key={dest.id} className="hover:bg-slate-50/80 transition-colors group">
+                                  <td className="py-3 px-4 text-center font-mono font-bold text-slate-400">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                                      <SafeImage src={dest.hero_image} alt={dest.name} className="w-full h-full object-cover" />
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-extrabold text-sm text-slate-900">{dest.name}</div>
+                                    <div className="text-[11px] text-slate-500 font-mono">ID: {dest.id}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-lime-100 text-lime-800 border border-lime-200">
+                                      {dest.region}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <span className="inline-flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 text-xs">
+                                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                      <span>{rating}</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <div className="font-bold text-slate-800">{dest.activities?.length || 0} mục dịch vụ</div>
+                                    <div className="text-[11px] font-bold text-lime-700 font-mono">
+                                      ~{(dest.minimum_two_day_cost_vnd || 1500000).toLocaleString('vi-VN')} đ/ngày
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingDest(dest);
+                                          setIsNewDest(false);
+                                        }}
+                                        className="px-3.5 py-1.5 rounded-lg bg-slate-100 text-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        title="Chỉnh sửa điểm đến"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                                        <span>Sửa</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (window.confirm(`Xóa vĩnh viễn điểm đến "${dest.name}" khỏi danh sách?`)) {
+                                            deleteDestination(dest.id);
+                                            showToast(`Đã xóa vĩnh viễn: ${dest.name}`);
+                                          }
+                                        }}
+                                        className="px-3.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                                        title="Xóa vĩnh viễn điểm đến"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>Xóa</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* GRID VIEW: Destinations Cards Grid */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredDestinations.map((dest) => (
+                      <div key={dest.id} className="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                            <SafeImage src={dest.hero_image} alt={dest.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="overflow-hidden">
+                            <span className="text-[10px] font-extrabold text-lime-700 uppercase tracking-wider">{dest.region}</span>
+                            <h4 className="font-extrabold text-base text-slate-900 truncate">{dest.name}</h4>
+                            <span className="text-xs text-slate-500 block">{dest.activities?.length || 0} mục dịch vụ / giá thành</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDest(dest);
+                              setIsNewDest(false);
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-slate-100 text-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                            <span>Sửa</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Xóa vĩnh viễn điểm đến "${dest.name}" khỏi danh sách?`)) {
+                                deleteDestination(dest.id);
+                                showToast(`Đã xóa vĩnh viễn: ${dest.name}`);
+                              }
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Xóa</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
               </div>
             )}
