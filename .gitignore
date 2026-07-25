@@ -48,3 +48,8 @@ ENV/
 Thumbs.db
 .vscode/
 .idea/
+
+# SQLite local DB
+*.db
+tripbudget.db
+

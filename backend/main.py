@@ -108,6 +108,66 @@ def get_similar(destination_id: str, limit: int = 3):
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
+# --- ONLINE POSTGRESQL / DATABASE API ENDPOINTS ---
+from typing import Any
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from backend.database import get_db, engine, Base
+from backend.models import DestinationModel, ServiceModel, SavedPlanModel
+from backend.seed_db import seed_database
+
+# Create DB tables automatically on server start
+Base.metadata.create_all(bind=engine)
+
+
+@app.get("/api/v1/db/services")
+def get_db_services(destination_id: str | None = None, category: str | None = None, db: Session = Depends(get_db)):
+    query = db.query(ServiceModel)
+    if destination_id and destination_id != "ALL":
+        query = query.filter(ServiceModel.destination_id == destination_id)
+    if category and category != "ALL":
+        query = query.filter(ServiceModel.category == category)
+    services = query.all()
+    return {"status": "success", "count": len(services), "services": [s.as_dict() for s in services]}
+
+
+@app.post("/api/v1/db/services")
+def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depends(get_db)):
+    srv_id = service_data.get("id") or f"SRV_{service_data.get('destination_id', 'HAN')}_{int(datetime.now().timestamp())}"
+    db_srv = ServiceModel(
+        id=srv_id,
+        destination_id=service_data.get("destination_id", "HAN"),
+        category=service_data.get("category", "activity"),
+        sub_category=service_data.get("sub_category", "standard"),
+        name=service_data.get("name", "Dịch vụ mới"),
+        price=float(service_data.get("price", 0.0)),
+        rating=float(service_data.get("rating", 4.5)),
+        duration_mins=int(service_data.get("duration_mins", 60)),
+        tags=service_data.get("tags", []),
+        image_url=service_data.get("image_url", ""),
+        booking_url=service_data.get("booking_url", ""),
+    )
+    db.merge(db_srv)
+    db.commit()
+    return {"status": "success", "service": db_srv.as_dict()}
+
+
+@app.delete("/api/v1/db/services/{service_id}")
+def delete_db_service(service_id: str, db: Session = Depends(get_db)):
+    srv = db.query(ServiceModel).filter(ServiceModel.id == service_id).first()
+    if not srv:
+        raise HTTPException(status_code=404, detail="Service not found")
+    db.delete(srv)
+    db.commit()
+    return {"status": "success", "message": f"Deleted service {service_id}"}
+
+
+@app.post("/api/v1/db/seed")
+def reseed_db():
+    seed_database()
+    return {"status": "success", "message": "Database reseeded successfully"}
+
+
 if __name__ == "__main__":
     import uvicorn
 
