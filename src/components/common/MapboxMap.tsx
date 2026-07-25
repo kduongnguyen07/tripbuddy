@@ -1,7 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import { Sun, Moon, MapPin } from 'lucide-react';
 import { Destination } from '../../types';
 import archipelagosData from '../../data/archipelagosData.json';
+import { useData } from '../../context/DataContext';
 
 interface MapProps {
   selectedDestination: Destination;
@@ -12,44 +14,66 @@ interface MapProps {
 export const MapboxMap: React.FC<MapProps> = ({
   selectedDestination,
   allDestinations,
-  onSelectDestination
+  onSelectDestination,
 }) => {
+  const { theme: globalTheme } = useData();
+  // Map mode state: defaults to globalTheme ('dark' or 'light')
+  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>(
+    globalTheme === 'light' ? 'light' : 'dark'
+  );
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+
+  // Toggle map dark/light tile layer
+  const toggleMapTheme = () => {
+    setMapTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  // Sync with global theme change
+  useEffect(() => {
+    setMapTheme(globalTheme === 'light' ? 'light' : 'dark');
+  }, [globalTheme]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Initialize Leaflet Map (CartoDB Dark Matter tiles, zoomControl: false to remove +/- buttons)
+    // Initialize Leaflet Map
     const map = L.map(mapContainerRef.current, {
       center: [16.0, 108.0],
       zoom: 5.5,
       zoomControl: false,
-      attributionControl: false
+      attributionControl: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const tileUrl =
+      mapTheme === 'dark'
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+    const tileLayer = L.tileLayer(tileUrl, {
       maxZoom: 19,
-      subdomains: 'abcd'
+      subdomains: 'abcd',
     }).addTo(map);
 
+    tileLayerRef.current = tileLayer;
     mapRef.current = map;
 
-    // 1. Add Archipelago Markers naturally from archipelagosData.json
-    archipelagosData.forEach(arch => {
+    // 1. Add Archipelago Markers (Single uniform neutral gray style)
+    archipelagosData.forEach((arch) => {
       const icon = L.divIcon({
         className: 'custom-arch-marker',
         html: `
           <div style="
-            background: rgba(16, 185, 129, 0.9);
-            border: 1.5px solid #34d399;
-            color: white;
+            background: ${mapTheme === 'dark' ? 'rgba(30, 41, 59, 0.9)' : 'rgba(241, 245, 249, 0.9)'};
+            border: 1px solid ${mapTheme === 'dark' ? '#475569' : '#cbd5e1'};
+            color: ${mapTheme === 'dark' ? '#94a3b8' : '#475569'};
             padding: 3px 8px;
             border-radius: 16px;
             font-size: 10px;
-            font-weight: bold;
-            box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+            font-weight: 600;
             white-space: nowrap;
             display: flex;
             align-items: center;
@@ -59,7 +83,7 @@ export const MapboxMap: React.FC<MapProps> = ({
           </div>
         `,
         iconSize: [140, 26],
-        iconAnchor: [70, 13]
+        iconAnchor: [70, 13],
       });
 
       L.marker([arch.coordinates[1], arch.coordinates[0]], { icon })
@@ -72,34 +96,58 @@ export const MapboxMap: React.FC<MapProps> = ({
         .addTo(map);
     });
 
-    // 2. Add Destination Markers
-    allDestinations.forEach(dest => {
+    // 2. Add Destination Markers (ONLY Selected is GOLD/YELLOW, ALL others are UNIFORM NEUTRAL GRAY)
+    allDestinations.forEach((dest) => {
       const isSelected = dest.id === selectedDestination.id;
 
       const icon = L.divIcon({
         className: 'custom-dest-marker',
         html: `
           <div style="
-            background: ${isSelected ? '#d4af37' : '#1e293b'};
-            color: ${isSelected ? '#0C0805' : '#ffffff'};
-            border: 1.5px solid ${isSelected ? '#fbbf24' : '#d4af37'};
+            background: ${
+              isSelected
+                ? '#d4af37'
+                : mapTheme === 'dark'
+                ? '#1e293b'
+                : '#ffffff'
+            };
+            color: ${
+              isSelected
+                ? '#0C0805'
+                : mapTheme === 'dark'
+                ? '#cbd5e1'
+                : '#334155'
+            };
+            border: ${
+              isSelected
+                ? '2px solid #fbbf24'
+                : mapTheme === 'dark'
+                ? '1px solid #475569'
+                : '1px solid #cbd5e1'
+            };
             padding: 4px 10px;
             border-radius: 14px;
             font-size: 11px;
-            font-weight: bold;
-            box-shadow: ${isSelected ? '0 0 16px rgba(212, 175, 55, 0.8)' : '0 4px 10px rgba(0,0,0,0.5)'};
+            font-weight: ${isSelected ? '900' : '600'};
+            box-shadow: ${
+              isSelected
+                ? '0 0 20px rgba(212, 175, 55, 0.95), 0 4px 12px rgba(0,0,0,0.5)'
+                : '0 2px 6px rgba(0,0,0,0.15)'
+            };
             white-space: nowrap;
             display: flex;
             align-items: center;
             gap: 4px;
             cursor: pointer;
+            transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'};
+            transition: all 0.3s ease;
           ">
-            <span>📍</span>
+            <span style="color: ${isSelected ? '#0C0805' : '#64748b'}">📍</span>
             <span>${dest.name.split('-')[0].trim()}</span>
           </div>
         `,
         iconSize: [130, 26],
-        iconAnchor: [65, 13]
+        iconAnchor: [65, 13],
       });
 
       const marker = L.marker([dest.coordinates[1], dest.coordinates[0]], { icon })
@@ -114,27 +162,52 @@ export const MapboxMap: React.FC<MapProps> = ({
     return () => {
       map.remove();
     };
-  }, [allDestinations]);
+  }, [allDestinations, selectedDestination, mapTheme]);
 
   // Fly to selected destination on change
   useEffect(() => {
     if (mapRef.current && selectedDestination) {
-      mapRef.current.flyTo([selectedDestination.coordinates[1], selectedDestination.coordinates[0]], 8.5, {
-        duration: 1.5
-      });
+      mapRef.current.flyTo(
+        [selectedDestination.coordinates[1], selectedDestination.coordinates[0]],
+        8.5,
+        {
+          duration: 1.5,
+        }
+      );
     }
   }, [selectedDestination]);
 
   return (
-    <div className="relative w-full h-[520px] rounded-3xl overflow-hidden border border-amber-950/60 shadow-2xl">
-      {/* Leaflet Map Canvas */}
+    <div className="relative w-full h-[420px] rounded-3xl overflow-hidden border border-amber-950/60 shadow-2xl">
+      {/* Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full bg-[#0C0805]" />
 
-      {/* Selected Destination Tag Overlay */}
-      <div className="absolute top-4 left-4 z-[400] bg-[#0C0805]/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-[#d4af37]/40 flex items-center gap-2 shadow-xl">
+      {/* Selected Destination Badge Overlay (Top Left) */}
+      <div className="absolute top-4 left-4 z-[400] bg-[#0C0805]/90 backdrop-blur-md px-4 py-2 rounded-2xl border border-[#d4af37]/40 flex items-center gap-2 shadow-xl">
         <span className="text-[#d4af37] font-bold">📍</span>
-        <span className="text-xs font-extrabold text-white">{selectedDestination.name}</span>
+        <span className="text-xs font-extrabold text-white">
+          Đang chọn: {selectedDestination.name}
+        </span>
       </div>
+
+      {/* Map Dark / Light Mode Toggle Button Overlay (Top Right) */}
+      <button
+        onClick={toggleMapTheme}
+        className="absolute top-4 right-4 z-[400] px-3.5 py-2 rounded-2xl bg-[#0C0805]/90 hover:bg-[#d4af37] hover:text-[#0C0805] text-white backdrop-blur-md border border-amber-950/60 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-extrabold shadow-xl"
+        title="Chuyển chế độ Dark / Light Mode cho Bản Đồ"
+      >
+        {mapTheme === 'dark' ? (
+          <>
+            <Sun className="w-4 h-4 text-amber-400" />
+            <span>Giao Diện Sáng</span>
+          </>
+        ) : (
+          <>
+            <Moon className="w-4 h-4 text-[#d4af37]" />
+            <span>Giao Diện Tối</span>
+          </>
+        )}
+      </button>
     </div>
   );
 };

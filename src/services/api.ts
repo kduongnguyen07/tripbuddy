@@ -23,6 +23,7 @@ const DEST_ID_MAP: Record<string, DestinationId> = {
   'HAN': 'ha-noi',
   'HUE': 'hue',
   'DAD': 'da-nang',
+  'DLT': 'da-lat',
   'DLD': 'da-lat',
   'PQC': 'phu-quoc',
 };
