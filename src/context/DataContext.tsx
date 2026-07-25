@@ -179,23 +179,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const notifyStateChange = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new Event('tripbudget_dataset_updated'));
+    }
+  };
+
   // Destination Actions
   const addDestination = (dest: Destination) => {
     const updated = [dest, ...destinations];
     setDestinations(updated);
     pushStateToCloud(updated, slides, heroConfig);
+    notifyStateChange();
+
+    fetch('http://127.0.0.1:8000/api/v1/db/destinations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dest),
+    }).catch((e) => console.log('PostgreSQL sync info:', e));
   };
 
   const updateDestination = (dest: Destination) => {
     const updated = destinations.map((d) => (d.id === dest.id ? dest : d));
     setDestinations(updated);
     pushStateToCloud(updated, slides, heroConfig);
+    notifyStateChange();
+
+    fetch('http://127.0.0.1:8000/api/v1/db/destinations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dest),
+    }).catch((e) => console.log('PostgreSQL sync info:', e));
   };
 
   const deleteDestination = (id: string) => {
     const updated = destinations.filter((d) => d.id !== id);
     setDestinations(updated);
     pushStateToCloud(updated, slides, heroConfig);
+    notifyStateChange();
+
+    fetch(`http://127.0.0.1:8000/api/v1/db/destinations/${id}`, {
+      method: 'DELETE',
+    }).catch((e) => console.log('PostgreSQL sync info:', e));
   };
 
   // Slide Actions
@@ -203,24 +229,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = [...slides, slide];
     setSlides(updated);
     pushStateToCloud(destinations, updated, heroConfig);
+    notifyStateChange();
   };
 
   const updateSlide = (slide: JourneySlide) => {
     const updated = slides.map((s) => (s.id === slide.id ? slide : s));
     setSlides(updated);
     pushStateToCloud(destinations, updated, heroConfig);
+    notifyStateChange();
   };
 
   const deleteSlide = (id: string) => {
     const updated = slides.filter((s) => s.id !== id);
     setSlides(updated);
     pushStateToCloud(destinations, updated, heroConfig);
+    notifyStateChange();
   };
 
   // Hero Actions
   const updateHeroConfig = (config: HeroConfig) => {
     setHeroConfig(config);
     pushStateToCloud(destinations, slides, config);
+    notifyStateChange();
   };
 
   // Backup Tools
@@ -247,6 +277,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (parsed.heroConfig) {
         setHeroConfig(parsed.heroConfig);
       }
+      notifyStateChange();
       return true;
     } catch (err) {
       console.error('Failed to import JSON data:', err);
@@ -261,6 +292,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('tripbudget_destinations');
     localStorage.removeItem('tripbudget_slides');
     localStorage.removeItem('tripbudget_hero');
+    localStorage.removeItem('admin_tripbudget_dataset_500');
+    notifyStateChange();
   };
 
   return (

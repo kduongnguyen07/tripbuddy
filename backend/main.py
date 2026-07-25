@@ -168,6 +168,41 @@ def reseed_db():
     return {"status": "success", "message": "Database reseeded successfully"}
 
 
+@app.get("/api/v1/db/destinations")
+def get_db_destinations(db: Session = Depends(get_db)):
+    dests = db.query(DestinationModel).all()
+    return {"status": "success", "count": len(dests), "destinations": [d.as_dict() for d in dests]}
+
+
+@app.post("/api/v1/db/destinations")
+def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Depends(get_db)):
+    dest_id = dest_data.get("id") or f"dest_{int(datetime.now().timestamp())}"
+    db_dest = DestinationModel(
+        id=dest_id,
+        code=dest_data.get("code", dest_id.upper()),
+        name=dest_data.get("name", "Điểm đến mới"),
+        region=dest_data.get("region", "Miền Bắc"),
+        category_type=dest_data.get("category_type", "city"),
+        tags=dest_data.get("tags", []),
+        coordinates=dest_data.get("coordinates", [105.85, 21.02]),
+        hero_image=dest_data.get("hero_image", ""),
+        description=dest_data.get("description", ""),
+    )
+    db.merge(db_dest)
+    db.commit()
+    return {"status": "success", "destination": db_dest.as_dict()}
+
+
+@app.delete("/api/v1/db/destinations/{dest_id}")
+def delete_db_destination(dest_id: str, db: Session = Depends(get_db)):
+    dest = db.query(DestinationModel).filter(DestinationModel.id == dest_id).first()
+    if dest:
+        db.delete(dest)
+        db.query(ServiceModel).filter(ServiceModel.destination_id == dest_id).delete()
+        db.commit()
+    return {"status": "success", "message": f"Deleted destination {dest_id}"}
+
+
 if __name__ == "__main__":
     import uvicorn
 
