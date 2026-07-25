@@ -26,9 +26,9 @@ interface DataContextType {
   lastSyncedAt: string | null;
   syncWithCloud: () => Promise<boolean>;
   fetchFromCloud: () => Promise<boolean>;
-  addDestination: (dest: Destination) => void;
-  updateDestination: (dest: Destination) => void;
-  deleteDestination: (id: string) => void;
+  addDestination: (dest: Destination) => Promise<void>;
+  updateDestination: (dest: Destination) => Promise<void>;
+  deleteDestination: (id: string) => Promise<void>;
   addSlide: (slide: JourneySlide) => void;
   updateSlide: (slide: JourneySlide) => void;
   deleteSlide: (id: string) => void;
@@ -145,7 +145,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
-  // Load destinations strictly from backend Database
+  // Load destinations strictly from backend Database (100% Neon Postgres)
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
@@ -160,14 +160,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
             const filtered = dbJson.destinations
               .filter((d: any) => !deletedDestsSet.has(d.id))
-              .map((d: any) => {
-                const defaultItem = (destinationsData as Destination[]).find(x => x.id === d.id);
-                return {
-                  ...defaultItem,
-                  ...d,
-                  activities: (d.activities && d.activities.length > 0) ? d.activities : (defaultItem?.activities || [])
-                };
-              });
+              .map((d: any) => ({
+                id: d.id,
+                code: d.code || d.id.upper(),
+                name: d.name,
+                region: d.region,
+                category_type: d.category_type || 'city',
+                tags: d.tags || [],
+                coordinates: d.coordinates || [105.8542, 21.0285],
+                hero_image: d.hero_image || '',
+                gallery_images: d.gallery_images || [d.hero_image || ''],
+                satisfaction_scores: d.satisfaction_scores || { stay: 9.0, food: 9.0, transport: 9.0, activities: 9.0 },
+                activities: d.activities || [],
+                description: d.description || '',
+                minimum_two_day_cost_vnd: d.minimum_two_day_cost_vnd || 1500000,
+              }));
             if (isMounted) {
               setDestinations(filtered);
             }
@@ -194,7 +201,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const pushStateToCloud = async (_d = destinations, _s = slides, _h = heroConfig) => {
-    // Cloud sync disabled for demo stability (LocalStorage & DB active)
     setIsSyncingCloud(false);
     setIsCloudSynced(true);
     setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
@@ -206,7 +212,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchFromCloud = async () => {
-    // Cloud sync disabled for demo stability
     setIsSyncingCloud(false);
     setIsCloudSynced(true);
     return true;
@@ -219,60 +224,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Destination Actions
-  const addDestination = (dest: Destination) => {
-    const updated = [dest, ...destinations];
-    setDestinations(updated);
-    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
-
-    // Remove from deleted blacklist if re-added
-    const deleted = getDeletedDestIds().filter((id) => id !== dest.id);
-    localStorage.setItem('tripbudget_deleted_destinations', JSON.stringify(deleted));
-
-    markLocalUpdate();
-    pushStateToCloud(updated, slides, heroConfig);
-    notifyStateChange();
-
-    fetch(`${API_BASE_URL}/db/destinations`, {
+  // Destination Actions - Strictly require DB operation success
+  const addDestination = async (dest: Destination): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/db/destinations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dest),
-    }).catch((e) => console.log('PostgreSQL sync info:', e));
-  };
-
-  const updateDestination = (dest: Destination) => {
-    const updated = destinations.map((d) => (d.id === dest.id ? dest : d));
-    setDestinations(updated);
-    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
-    markLocalUpdate();
-    pushStateToCloud(updated, slides, heroConfig);
-    notifyStateChange();
-
-    fetch(`${API_BASE_URL}/db/destinations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dest),
-    }).catch((e) => console.log('PostgreSQL sync info:', e));
-  };
-
-  const deleteDestination = (id: string) => {
-    const updated = destinations.filter((d) => d.id !== id);
-    setDestinations(updated);
-    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
-
-    // Add to deleted blacklist in localStorage so reload NEVER brings it back
-    const deleted = getDeletedDestIds();
-    if (!deleted.includes(id)) {
-      localStorage.setItem('tripbudget_deleted_destinations', JSON.stringify([...deleted, id]));
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Lỗi lưu điểm đến vào Neon Postgres Database (${res.status}): ${errText}`);
     }
-
-    markLocalUpdate();
-    pushStateToCloud(updated, slides, heroConfig);
+    const data = await res.json();
+    const savedDest = data.destination ? { ...dest, ...data.destination } : dest;
+    setDestinations((prev) => [savedDest, ...prev.filter((d) => d.id !== savedDest.id)]);
     notifyStateChange();
+  };
 
-    fetch(`${API_BASE_URL}/db/destinations/${id}`, {
+  const updateDestination = async (dest: Destination): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/db/destinations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dest),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Lỗi cập nhật điểm đến vào Neon Postgres Database (${res.status}): ${errText}`);
+    }
+    const data = await res.json();
+    const savedDest = data.destination ? { ...dest, ...data.destination } : dest;
+    setDestinations((prev) => prev.map((d) => (d.id === savedDest.id ? savedDest : d)));
+    notifyStateChange();
+  };
+
+  const deleteDestination = async (id: string): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/db/destinations/${id}`, {
       method: 'DELETE',
-    }).catch((e) => console.log('PostgreSQL sync info:', e));
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Lỗi xóa điểm đến khỏi Neon Postgres Database (${res.status}): ${errText}`);
+    }
+    setDestinations((prev) => prev.filter((d) => d.id !== id));
+    notifyStateChange();
   };
 
   // Slide Actions
@@ -359,7 +353,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetToDefaults = () => {
-    setDestinations(destinationsData as Destination[]);
+    setDestinations(destinationsData as unknown as Destination[]);
     setSlides(slidesData as JourneySlide[]);
     setHeroConfig(DEFAULT_HERO_CONFIG);
     localStorage.removeItem('tripbudget_destinations');

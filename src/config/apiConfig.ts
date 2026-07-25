@@ -4,11 +4,12 @@
  */
 
 const getBaseUrl = (): string => {
-  // Check NEXT_PUBLIC_API_BASE_URL (Next.js / Vercel)
-  if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  // Check process.env safely without node typings error
+  const gProcess = (globalThis as any).process;
+  if (gProcess && gProcess.env && gProcess.env.NEXT_PUBLIC_API_BASE_URL) {
+    return gProcess.env.NEXT_PUBLIC_API_BASE_URL;
   }
-  
+
   // Check VITE_API_BASE_URL (Vite / Vercel)
   try {
     if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL) {

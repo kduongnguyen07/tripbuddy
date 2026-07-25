@@ -10,7 +10,6 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
-import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface AdminDashboardModalProps {
@@ -31,19 +30,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 500 Dataset Services State
-  const [servicesList, setServicesList] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('admin_tripbudget_dataset_500');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
-      }
-    }
-    return fullDatasetRaw as any[];
-  });
+  // 500 Dataset Services State - Strictly fetched from Neon Postgres DB
+  const [servicesList, setServicesList] = useState<any[]>([]);
+  const [isServicesLoading, setIsServicesLoading] = useState<boolean>(false);
 
   const [serviceDestFilter, setServiceDestFilter] = useState<string>('ALL');
   const [serviceCatFilter, setServiceCatFilter] = useState<string>('ALL');
@@ -113,15 +102,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     return true;
   });
 
-  const saveServicesList = (updated: any[]) => {
-    setServicesList(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('admin_tripbudget_dataset_500', JSON.stringify(updated));
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new Event('tripbudget_dataset_updated'));
+  const fetchServicesFromDb = async () => {
+    setIsServicesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/db/services`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === 'success' && Array.isArray(data.services)) {
+          setServicesList(data.services);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi khi kết nối Database lấy danh sách dịch vụ:', err);
+    } finally {
+      setIsServicesLoading(false);
     }
-    setIframeKey((prev) => prev + 1);
   };
+
+  React.useEffect(() => {
+    if (isOpen && activeTab === 'services') {
+      fetchServicesFromDb();
+    }
+  }, [isOpen, activeTab]);
 
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,48 +135,51 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
     const itemToSave = {
       ...editingService,
-      id: editingService.id || `SRV_${editingService.destination_id || 'HAN'}_${Date.now().toString().slice(-4)}`,
+      destination_id: editingService.destination_id || 'HAN',
+      category: editingService.category || 'accommodation',
+      sub_category: editingService.sub_category || 'standard',
+      name: editingService.name,
       price: Number(editingService.price) || 0,
       rating: Number(editingService.rating) || 4.5,
-      duration_mins: Number(editingService.duration_mins) || 0,
+      duration_mins: Number(editingService.duration_mins) || 60,
       tags: tagsArray,
+      image_url: editingService.image_url || '',
+      booking_url: editingService.booking_url || '',
     };
 
-    if (isNewService) {
-      const updated = [itemToSave, ...servicesList];
-      saveServicesList(updated);
-      showToast('Đã thêm dịch vụ mới & cập nhật giao diện Web!');
-    } else {
-      const updated = servicesList.map((s) => (s.id === itemToSave.id ? itemToSave : s));
-      saveServicesList(updated);
-      showToast(`Đã lưu thay đổi cho dịch vụ ${itemToSave.name}!`);
-    }
-
     try {
-      await fetch(`${API_BASE_URL}/db/services`, {
+      const res = await fetch(`${API_BASE_URL}/db/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(itemToSave),
       });
-    } catch (err) {
-      console.log('PostgreSQL sync note:', err);
-    }
 
-    setEditingService(null);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Lỗi lưu dịch vụ (${res.status}): ${errText}`);
+      }
+
+      showToast(`Đã lưu thành công dịch vụ "${itemToSave.name}" vào Neon Postgres Database!`);
+      await fetchServicesFromDb();
+      setEditingService(null);
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi lưu dịch vụ vào Neon Postgres Database.');
+    }
   };
 
   const handleDeleteService = async (id: string) => {
-    if (window.confirm(`Xác nhận xóa dịch vụ ID "${id}" khỏi tập dữ liệu & PostgreSQL Database?`)) {
-      const updated = servicesList.filter((s) => s.id !== id);
-      saveServicesList(updated);
-
+    if (window.confirm(`Xác nhận xóa vĩnh viễn dịch vụ ID "${id}" khỏi Neon Postgres Database?`)) {
       try {
-        await fetch(`${API_BASE_URL}/db/services/${id}`, { method: 'DELETE' });
-      } catch (err) {
-        console.log('PostgreSQL delete note:', err);
+        const res = await fetch(`${API_BASE_URL}/db/services/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error(`Lỗi xóa dịch vụ (${res.status}): ${errText}`);
+        }
+        showToast(`Đã xóa thành công dịch vụ ${id} khỏi Neon Postgres Database!`);
+        await fetchServicesFromDb();
+      } catch (err: any) {
+        alert(err.message || 'Lỗi khi xóa dịch vụ khỏi Database.');
       }
-
-      showToast(`Đã xóa dịch vụ ${id} & tự động làm mới giao diện Web!`);
     }
   };
 
@@ -262,8 +267,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     setEditingDest({ ...editingDest, travel_tips: list });
   };
 
-  // Save Destination
-  const handleSaveDestination = (e: React.FormEvent) => {
+  // Save Destination - Strict Postgres DB async operation
+  const handleSaveDestination = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDest || !editingDest.name) return;
 
@@ -285,15 +290,18 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       ]
     };
 
-    if (isNewDest) {
-      addDestination(formattedDest);
-      showToast('Đã thêm điểm đến mới thành công!');
-    } else {
-      updateDestination(formattedDest);
-      showToast('Đã lưu thông tin điểm đến & bảng giá dịch vụ!');
+    try {
+      if (isNewDest) {
+        await addDestination(formattedDest);
+        showToast('Đã thêm điểm đến mới thành công vào Neon Postgres Database!');
+      } else {
+        await updateDestination(formattedDest);
+        showToast('Đã lưu thông tin điểm đến vào Neon Postgres Database!');
+      }
+      setEditingDest(null);
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi lưu điểm đến vào Neon Postgres Database.');
     }
-
-    setEditingDest(null);
   };
 
   // Slide Feature Items Handlers
@@ -1055,15 +1063,24 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                     Hiển thị <strong className="text-slate-900">{filteredServices.length}</strong> / {servicesList.length} dịch vụ
                   </span>
                   <button
-                    onClick={() => {
-                      if (window.confirm('Khôi phục toàn bộ 500 dịch vụ về mặc định ban đầu?')) {
-                        saveServicesList(fullDatasetRaw);
-                        showToast('Đã khôi phục tập dữ liệu 500 dịch vụ gốc thành công!');
+                    onClick={async () => {
+                      if (window.confirm('Khôi phục toàn bộ 500 dịch vụ gốc vào Neon Postgres Database?')) {
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/db/seed`, { method: 'POST' });
+                          if (res.ok) {
+                            showToast('Đã re-seed tập dữ liệu 500 dịch vụ thành công vào Neon Postgres Database!');
+                            await fetchServicesFromDb();
+                          } else {
+                            alert('Không thể re-seed Database.');
+                          }
+                        } catch (err) {
+                          alert('Lỗi kết nối Backend Re-seed API.');
+                        }
                       }
                     }}
                     className="text-xs text-slate-500 hover:text-red-600 underline cursor-pointer flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" /> Reset Dữ Liệu 500 Items Mặc Định
+                    <RotateCcw className="w-3.5 h-3.5" /> Re-seed Dữ Liệu Postgres Mặc Định
                   </button>
                 </div>
 
