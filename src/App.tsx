@@ -248,7 +248,16 @@ function MainContent() {
                 isLight ? 'text-[#8A8075]' : 'text-slate-500'
               }`}
             >
-              <div>© 2026 TripBudget Vietnam. All rights reserved.</div>
+              <div className="flex items-center gap-3">
+                <span>© 2026 TripBudget Vietnam. All rights reserved.</span>
+                <button
+                  onClick={() => setIsLoginOpen(true)}
+                  className="ml-3 text-[#d4af37] hover:underline font-extrabold cursor-pointer"
+                  title="Mở Trang Quản Trị Admin System"
+                >
+                  ⚙️ Quản Trị Hệ Thống (Admin Portal)
+                </button>
+              </div>
               <div className="flex items-center gap-1">
                 <span>Bản quyền nội dung thuộc về</span>
                 <Heart className="w-3.5 h-3.5 fill-[#d4af37] text-[#d4af37]" />

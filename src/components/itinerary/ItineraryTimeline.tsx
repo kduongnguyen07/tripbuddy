@@ -11,6 +11,7 @@ import {
   Ticket,
   MapPin,
   CheckCircle,
+  AlertTriangle,
   Eye,
 } from 'lucide-react';
 import {
@@ -71,6 +72,12 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>Đã kiểm tra không trùng lặp khung giờ</span>
         </div>
+      </div>
+
+      {/* Mandatory Disclaimer Note Banner */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-3 shadow-xl">
+        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+        <span>Lưu ý: Lịch trình này chưa bao gồm chi phí di chuyển và các chi phí phát sinh khác.</span>
       </div>
 
       {/* Days Grid */}
