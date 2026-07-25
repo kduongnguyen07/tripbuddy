@@ -7,11 +7,28 @@ with automatic fallback to SQLite when DATABASE_URL is not set.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Get DATABASE_URL from environment (e.g., postgresql://user:pass@ep-xyz.neon.tech/tripbudget?sslmode=require)
+# Automatically load .env file from project root if present
+root_dir = Path(__file__).resolve().parent.parent
+env_file = root_dir / ".env"
+if env_file.exists():
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip().strip("'").strip('"')
+                if key not in os.environ:
+                    os.environ[key] = val
+    except Exception as e:
+        print(f"Warning loading .env file: {e}")
+
+# Get DATABASE_URL from environment
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     os.getenv(
@@ -20,9 +37,17 @@ DATABASE_URL = os.getenv(
     )
 )
 
-# Fix postgres:// prefix if provided by Heroku/Render to postgresql://
+# Fix postgres:// prefix if provided by Heroku/Render/Vercel to postgresql://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Clean unsupported channel_binding parameter for psycopg2 / Neon compatibility
+if "channel_binding=" in DATABASE_URL:
+    DATABASE_URL = (
+        DATABASE_URL.replace("&channel_binding=require", "")
+        .replace("?channel_binding=require&", "?")
+        .replace("?channel_binding=require", "")
+    )
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):

@@ -9,7 +9,7 @@ from backend.models import DestinationModel, ServiceModel
 
 
 def seed_database():
-    """Create tables and populate initial dataset from JSON files."""
+    """Create tables and populate initial dataset from JSON files in ultra-fast bulk operations."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
@@ -17,52 +17,62 @@ def seed_database():
         # 1. Seed Destinations if empty
         dest_path = Path(__file__).with_name("destinations.json")
         if dest_path.exists():
+            existing_dest_ids = set(r[0] for r in db.query(DestinationModel.id).all())
             dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
+            new_dests = []
             for d in dest_data:
                 dest_id = d["id"]
-                existing = db.query(DestinationModel).filter(DestinationModel.id == dest_id).first()
-                if not existing:
-                    db_dest = DestinationModel(
-                        id=dest_id,
-                        code=d.get("code", dest_id.upper()),
-                        name=d["name"],
-                        region=d["region"],
-                        category_type=d.get("category_type", "city"),
-                        tags=d.get("tags", []),
-                        coordinates=d.get("coordinates", [105.85, 21.02]),
-                        hero_image=d.get("hero_image"),
-                        description=d.get("description"),
+                if dest_id not in existing_dest_ids:
+                    new_dests.append(
+                        DestinationModel(
+                            id=dest_id,
+                            code=d.get("code", dest_id.upper()),
+                            name=d["name"],
+                            region=d["region"],
+                            category_type=d.get("category_type", "city"),
+                            tags=d.get("tags", []),
+                            coordinates=d.get("coordinates", [105.85, 21.02]),
+                            hero_image=d.get("hero_image"),
+                            description=d.get("description"),
+                        )
                     )
-                    db.add(db_dest)
-            db.commit()
-            print("[SUCCESS] Destinations seeded cleanly.")
+            if new_dests:
+                db.add_all(new_dests)
+                db.commit()
+                print(f"[SUCCESS] {len(new_dests)} destinations seeded cleanly into Database.")
+            else:
+                print("[INFO] Destinations already seeded in Database.")
 
-        # 2. Seed Services if empty
+        # 2. Seed 500 Services in 1 Single Fast Bulk Insert
         services_path = Path(__file__).with_name("tripbudget_full_dataset_500.json")
         if services_path.exists():
+            existing_srv_ids = set(r[0] for r in db.query(ServiceModel.id).all())
             services_data = json.loads(services_path.read_text(encoding="utf-8"))
-            count = 0
+            new_services = []
             for s in services_data:
                 srv_id = s["id"]
-                existing = db.query(ServiceModel).filter(ServiceModel.id == srv_id).first()
-                if not existing:
-                    db_srv = ServiceModel(
-                        id=srv_id,
-                        destination_id=s.get("destination_id", "HAN"),
-                        category=s.get("category", "activity"),
-                        sub_category=s.get("sub_category", "standard"),
-                        name=s.get("name", "Dich vu du lich"),
-                        price=float(s.get("price", 0.0)),
-                        rating=float(s.get("rating", 4.5)),
-                        duration_mins=int(s.get("duration_mins", 60)),
-                        tags=s.get("tags", []),
-                        image_url=s.get("image_url", ""),
-                        booking_url=s.get("booking_url", ""),
+                if srv_id not in existing_srv_ids:
+                    new_services.append(
+                        ServiceModel(
+                            id=srv_id,
+                            destination_id=s.get("destination_id", "HAN"),
+                            category=s.get("category", "activity"),
+                            sub_category=s.get("sub_category", "standard"),
+                            name=s.get("name", "Dich vu du lich"),
+                            price=float(s.get("price", 0.0)),
+                            rating=float(s.get("rating", 4.5)),
+                            duration_mins=int(s.get("duration_mins", 60)),
+                            tags=s.get("tags", []),
+                            image_url=s.get("image_url", ""),
+                            booking_url=s.get("booking_url", ""),
+                        )
                     )
-                    db.add(db_srv)
-                    count += 1
-            db.commit()
-            print(f"[SUCCESS] {count} services seeded into database.")
+            if new_services:
+                db.add_all(new_services)
+                db.commit()
+                print(f"[SUCCESS] {len(new_services)} services seeded into PostgreSQL Database!")
+            else:
+                print(f"[INFO] Services already exist in Database ({len(existing_srv_ids)} items).")
 
     except Exception as e:
         db.rollback()
