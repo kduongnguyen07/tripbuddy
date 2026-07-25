@@ -284,13 +284,29 @@ export async function applySwapApi(req: ApplySwapRequest): Promise<MaterializedP
   return getFallbackPlanFromState(updatedState);
 }
 
+export function getActiveDataset(): any[] {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('admin_tripbudget_dataset_500');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {}
+    }
+  }
+  return fullDataset;
+}
+
 function getFallbackPlan(req: GeneratePlanRequest): MaterializedPlan {
   const destList = destinationsData as Destination[];
   const dest = destList.find((d) => d.id === req.destination_id) || destList[0];
   const destCodes = DEST_CODE_MAP[req.destination_id] || ['HAN'];
 
-  // Query dataset items for this destination
-  const destItems = (fullDataset as any[]).filter((item) => destCodes.includes(item.destination_id));
+  // Query active dataset items for this destination
+  const activeData = getActiveDataset();
+  const destItems = activeData.filter((item) => destCodes.includes(item.destination_id));
 
   const stays = destItems.filter((i) => i.category === 'accommodation');
   const foods = destItems.filter((i) => i.category === 'food');
@@ -430,8 +446,9 @@ function getFallbackSwapOptions(req: SwapOptionsRequest): SwapOptionsResponse {
   const people = req.plan_state.people;
   const nights = Math.max(1, req.plan_state.num_days - 1);
 
-  // Filter candidates matching destination and category from 500 dataset
-  const candidatesRaw = (fullDataset as any[]).filter(
+  // Filter candidates matching destination and category from active dataset
+  const activeData = getActiveDataset();
+  const candidatesRaw = activeData.filter(
     (item) => destCodes.includes(item.destination_id) && item.category === rawCat && item.id !== req.target.service_id
   );
 

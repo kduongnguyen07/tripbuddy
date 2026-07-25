@@ -10,6 +10,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
+import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -25,9 +26,37 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     updateHeroConfig, exportDataJSON, importDataJSON, resetToDefaults
   } = useData();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'destinations' | 'hero' | 'slides' | 'backup' | 'guide'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'destinations' | 'hero' | 'slides' | 'backup' | 'guide'>('services');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 500 Dataset Services State
+  const [servicesList, setServicesList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('admin_tripbudget_dataset_500');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return fullDatasetRaw as any[];
+  });
+
+  const saveServicesList = (updated: any[]) => {
+    setServicesList(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin_tripbudget_dataset_500', JSON.stringify(updated));
+    }
+  };
+
+  const [serviceDestFilter, setServiceDestFilter] = useState<string>('ALL');
+  const [serviceCatFilter, setServiceCatFilter] = useState<string>('ALL');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState<string>('');
+
+  const [editingService, setEditingService] = useState<any | null>(null);
+  const [isNewService, setIsNewService] = useState<boolean>(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Live Web Preview Device State
@@ -73,6 +102,71 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     d.region.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Filtered Services logic for 500 dataset tab
+  const filteredServices = servicesList.filter((item) => {
+    if (serviceDestFilter !== 'ALL' && item.destination_id !== serviceDestFilter) return false;
+    if (serviceCatFilter !== 'ALL' && item.category !== serviceCatFilter) return false;
+    if (serviceSearchQuery.trim()) {
+      const q = serviceSearchQuery.toLowerCase();
+      const matchName = (item.name || '').toLowerCase().includes(q);
+      const matchId = (item.id || '').toLowerCase().includes(q);
+      const matchSub = (item.sub_category || '').toLowerCase().includes(q);
+      const matchTags = (item.tags || []).some((t: string) => t.toLowerCase().includes(q));
+      return matchName || matchId || matchSub || matchTags;
+    }
+    return true;
+  });
+
+  const handleSaveService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService || !editingService.name) return;
+
+    const tagsArray = typeof editingService.tags === 'string'
+      ? editingService.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : Array.isArray(editingService.tags) ? editingService.tags : [];
+
+    const itemToSave = {
+      ...editingService,
+      id: editingService.id || `SRV_${editingService.destination_id || 'HAN'}_${Date.now().toString().slice(-4)}`,
+      price: Number(editingService.price) || 0,
+      rating: Number(editingService.rating) || 4.5,
+      duration_mins: Number(editingService.duration_mins) || 0,
+      tags: tagsArray,
+    };
+
+    if (isNewService) {
+      const updated = [itemToSave, ...servicesList];
+      saveServicesList(updated);
+      showToast('Đã thêm dịch vụ/hoạt động mới thành công!');
+    } else {
+      const updated = servicesList.map((s) => (s.id === itemToSave.id ? itemToSave : s));
+      saveServicesList(updated);
+      showToast(`Đã lưu thay đổi cho dịch vụ ${itemToSave.name}!`);
+    }
+
+    setEditingService(null);
+  };
+
+  const handleDeleteService = (id: string) => {
+    if (window.confirm(`Xác nhận xóa dịch vụ ID "${id}" khỏi tập dữ liệu?`)) {
+      const updated = servicesList.filter((s) => s.id !== id);
+      saveServicesList(updated);
+      showToast(`Đã xóa dịch vụ ${id}!`);
+    }
+  };
+
+  const handleExportDatasetJSON = () => {
+    const jsonStr = JSON.stringify(servicesList, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'tripbudget_full_dataset_500.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Đã xuất file dataset tripbudget_full_dataset_500.json!');
+  };
 
   // Save Hero Config
   const handleSaveHero = (e: React.FormEvent) => {
@@ -309,6 +403,21 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Dashboard</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('services')}
+                className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 transition-all cursor-pointer ${
+                  activeTab === 'services'
+                    ? 'bg-[#d9f99d] text-slate-900 font-extrabold shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                }`}
+              >
+                <Sliders className="w-4 h-4" />
+                <span className="truncate">Quản Lý 500 Dịch Vụ</span>
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-black">
+                  {servicesList.length}
+                </span>
               </button>
 
               <button
@@ -620,6 +729,420 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
                 </div>
 
+              </div>
+            )}
+
+            {/* TAB 6: 500 SERVICES & ACTIVITIES CATALOG MANAGER */}
+            {activeTab === 'services' && (
+              <div className="space-y-6 max-w-6xl mx-auto font-sans">
+                {/* Header Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                  <div>
+                    <h3 className="text-2xl font-extrabold text-slate-900 font-serif flex items-center gap-2">
+                      <Sliders className="w-6 h-6 text-orange-500" />
+                      <span>Quản Lý Tất Cả 500 Dịch Vụ & Hoạt Động (Full Dataset)</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Chỉnh sửa trực tiếp tên, giá tiền, rating, thẻ nhãn tag, ảnh minh họa và link đặt chỗ cho toàn bộ 500 dịch vụ du lịch.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleExportDatasetJSON}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title="Tải về file tripbudget_full_dataset_500.json"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Xuất File Dataset (.json)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setEditingService({
+                          id: `SRV_${serviceDestFilter !== 'ALL' ? serviceDestFilter : 'HAN'}_${Date.now().toString().slice(-4)}`,
+                          destination_id: serviceDestFilter !== 'ALL' ? serviceDestFilter : 'HAN',
+                          category: serviceCatFilter !== 'ALL' ? serviceCatFilter : 'accommodation',
+                          sub_category: 'hotel',
+                          name: '',
+                          price: 1000000,
+                          rating: 4.5,
+                          duration_mins: 60,
+                          tags: ['luxury', 'scenic_view'],
+                          image_url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+                          booking_url: '',
+                        });
+                        setIsNewService(true);
+                      }}
+                      className="px-5 py-2 rounded-xl bg-[#d9f99d] hover:bg-lime-300 text-slate-900 font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm Dịch Vụ Mới</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Edit / Add Service Modal Form */}
+                {editingService && (
+                  <div className="bg-white p-6 sm:p-8 rounded-[28px] border-2 border-orange-400 shadow-xl space-y-6">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <Edit3 className="w-5 h-5 text-orange-500" />
+                        <span>{isNewService ? 'Thêm Dịch Vụ Mới Vào Tập Dữ Liệu' : `Chỉnh Sửa Dịch Vụ: ${editingService.name || editingService.id}`}</span>
+                      </h4>
+                      <button onClick={() => setEditingService(null)} className="text-slate-400 hover:text-slate-700">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSaveService} className="space-y-4 text-xs font-sans">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Mã Dịch Vụ (ID)</label>
+                          <input
+                            type="text"
+                            required
+                            disabled={!isNewService}
+                            value={editingService.id || ''}
+                            onChange={(e) => setEditingService({ ...editingService, id: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-orange-500"
+                            placeholder="Ví dụ: SRV_HAN_005"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Điểm Đến (Destination Code)</label>
+                          <select
+                            value={editingService.destination_id || 'HAN'}
+                            onChange={(e) => setEditingService({ ...editingService, destination_id: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                          >
+                            <option value="HAN">HAN - Hà Nội</option>
+                            <option value="HUE">HUE - Huế</option>
+                            <option value="DAD">DAD - Đà Nẵng</option>
+                            <option value="DLT">DLT - Đà Lạt</option>
+                            <option value="PQC">PQC - Phú Quốc</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Phân Loại (Category)</label>
+                          <select
+                            value={editingService.category || 'accommodation'}
+                            onChange={(e) => setEditingService({ ...editingService, category: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                          >
+                            <option value="accommodation">accommodation - Lưu Trú (Khách sạn/Resort)</option>
+                            <option value="food">food - Ẩm Thực (Nhà hàng/Ăn uống)</option>
+                            <option value="activity">activity - Tham Quan / Vui Chơi</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tên Dịch Vụ / Địa Điểm</label>
+                          <input
+                            type="text"
+                            required
+                            value={editingService.name || ''}
+                            onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-orange-500"
+                            placeholder="Ví dụ: Khách sạn Hanoi Daewoo, Nhà Hàng Cố Đô..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Phân Loại Chi Tiết (Sub Category)</label>
+                          <select
+                            value={editingService.sub_category || 'hotel'}
+                            onChange={(e) => setEditingService({ ...editingService, sub_category: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+                          >
+                            <option value="hotel">hotel - Khách sạn</option>
+                            <option value="resort">resort - Resort nghỉ dưỡng</option>
+                            <option value="homestay">homestay - Homestay</option>
+                            <option value="villa">villa - Villa</option>
+                            <option value="hostel">hostel - Hostel</option>
+                            <option value="restaurant">restaurant - Nhà hàng</option>
+                            <option value="street_food">street_food - Quán ăn bình dân</option>
+                            <option value="cafe">cafe - Cà phê</option>
+                            <option value="buffet">buffet - Buffet</option>
+                            <option value="sightseeing">sightseeing - Tham quan thắng cảnh</option>
+                            <option value="entertainment">entertainment - Vui chơi giải trí</option>
+                            <option value="shopping">shopping - Mua sắm</option>
+                            <option value="cultural">cultural - Văn hóa di sản</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Giá Tiền (VNĐ)</label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            step="10000"
+                            value={editingService.price || 0}
+                            onChange={(e) => setEditingService({ ...editingService, price: Number(e.target.value) })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-emerald-700 focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Đánh Giá (Rating 1.0 - 5.0)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            max="5.0"
+                            min="1.0"
+                            value={editingService.rating || 4.5}
+                            onChange={(e) => setEditingService({ ...editingService, rating: parseFloat(e.target.value) })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-amber-600 focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Thời Gian (Phút)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="15"
+                            value={editingService.duration_mins || 0}
+                            onChange={(e) => setEditingService({ ...editingService, duration_mins: Number(e.target.value) })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Thẻ Nhãn Phân Loại Tags (Phân cách bằng dấu phẩy)</label>
+                        <input
+                          type="text"
+                          value={Array.isArray(editingService.tags) ? editingService.tags.join(', ') : editingService.tags || ''}
+                          onChange={(e) => setEditingService({ ...editingService, tags: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                          placeholder="Ví dụ: luxury, scenic_view, hotel, khach_san"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Đường Dẫn Ảnh Minh Họa (Image URL)</label>
+                          <input
+                            type="text"
+                            value={editingService.image_url || ''}
+                            onChange={(e) => setEditingService({ ...editingService, image_url: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                            placeholder="https://..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Link Đặt Chỗ (Booking Affiliate URL)</label>
+                          <input
+                            type="text"
+                            value={editingService.booking_url || ''}
+                            onChange={(e) => setEditingService({ ...editingService, booking_url: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+                            placeholder="https://partner.tripbudget.vn/..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setEditingService(null)}
+                          className="px-5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200"
+                        >
+                          Hủy Bỏ
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold shadow-md cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Lưu Dịch Vụ Vừa Sửa</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Filter Bar */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                  {/* Destination Filter Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Điểm Đến:</span>
+                    {['ALL', 'HAN', 'HUE', 'DAD', 'DLT', 'PQC'].map((code) => (
+                      <button
+                        key={code}
+                        onClick={() => setServiceDestFilter(code)}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                          serviceDestFilter === code
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {code === 'ALL' ? 'Tất Cả (500)' : code}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Category Filter Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Phân Loại:</span>
+                    {[
+                      { id: 'ALL', label: 'Tất Cả' },
+                      { id: 'accommodation', label: '🏨 Lưu Trú' },
+                      { id: 'food', label: '🍲 Ẩm Thực' },
+                      { id: 'activity', label: '🎟️ Tham Quan' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setServiceCatFilter(cat.id)}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                          serviceCatFilter === cat.id
+                            ? 'bg-orange-500 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Local Search Input */}
+                  <div className="relative w-full md:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={serviceSearchQuery}
+                      onChange={(e) => setServiceSearchQuery(e.target.value)}
+                      placeholder="Lọc tên, ID, tag..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Table Result Counter */}
+                <div className="flex items-center justify-between text-xs text-slate-500 px-1 font-sans">
+                  <span>
+                    Hiển thị <strong className="text-slate-900">{filteredServices.length}</strong> / {servicesList.length} dịch vụ
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Khôi phục toàn bộ 500 dịch vụ về mặc định ban đầu?')) {
+                        saveServicesList(fullDatasetRaw);
+                        showToast('Đã khôi phục tập dữ liệu 500 dịch vụ gốc thành công!');
+                      }
+                    }}
+                    className="text-xs text-slate-500 hover:text-red-600 underline cursor-pointer flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset Dữ Liệu 500 Items Mặc Định
+                  </button>
+                </div>
+
+                {/* Services Data Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+                    <table className="w-full text-left text-xs font-sans">
+                      <thead className="bg-slate-100/90 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">ID & Ảnh</th>
+                          <th className="p-3">Tên Dịch Vụ / Hoạt Động</th>
+                          <th className="p-3">Điểm Đến & Phân Loại</th>
+                          <th className="p-3">Giá (VNĐ)</th>
+                          <th className="p-3">Đánh Giá</th>
+                          <th className="p-3">Thẻ Tags</th>
+                          <th className="p-3 text-right">Thao Tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {filteredServices.slice(0, 150).map((srv) => (
+                          <tr key={srv.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3">
+                              <div className="flex items-center gap-2.5">
+                                <img
+                                  src={srv.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80'}
+                                  alt={srv.name}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80';
+                                  }}
+                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                />
+                                <span className="font-mono text-[10px] text-slate-400 font-bold">{srv.id}</span>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className="font-bold text-slate-900 text-xs block">{srv.name}</span>
+                              {srv.booking_url && (
+                                <a
+                                  href={srv.booking_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] text-sky-600 hover:underline flex items-center gap-1 mt-0.5"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> Partner Booking URL
+                                </a>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white font-extrabold text-[10px]">
+                                  {srv.destination_id}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-[10px] font-bold uppercase">
+                                  {srv.sub_category || srv.category}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3 font-extrabold text-emerald-700">
+                              {Number(srv.price).toLocaleString('vi-VN')} đ
+                            </td>
+                            <td className="p-3">
+                              <span className="font-bold text-amber-500 flex items-center gap-1">
+                                ⭐ {srv.rating}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {(srv.tags || []).slice(0, 3).map((t: string) => (
+                                  <span key={t} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">
+                                    #{t}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingService(srv);
+                                    setIsNewService(false);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                                  title="Chỉnh sửa dịch vụ"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteService(srv.id)}
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors cursor-pointer"
+                                  title="Xóa dịch vụ"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
 
