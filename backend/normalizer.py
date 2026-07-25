@@ -1,24 +1,33 @@
 """Normalize the generated TripBudget fixture into the catalog contract.
 
-The generated fixture intentionally has a compact authoring schema.  This module
+The generated fixture intentionally has a compact authoring schema. This module
 is the only translation boundary; a later data provider can emit the canonical
 schema directly and bypass it.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-DESTINATIONS: dict[str, dict[str, Any]] = {
-    "HAN": {"id": "ha-noi", "name": "Hà Nội", "region": "Miền Bắc", "coordinates": [105.8542, 21.0285], "hero_image": "https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=1200&q=80"},
-    "HUE": {"id": "hue", "name": "Huế", "region": "Miền Trung", "coordinates": [107.5847, 16.4637], "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=80"},
-    "DAD": {"id": "da-nang", "name": "Đà Nẵng", "region": "Miền Trung", "coordinates": [108.2022, 16.0544], "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80"},
-    "DLD": {"id": "da-lat", "name": "Đà Lạt", "region": "Tây Nguyên", "coordinates": [108.4419, 11.9404], "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80"},
-    "PQC": {"id": "phu-quoc", "name": "Phú Quốc", "region": "Miền Nam", "coordinates": [103.963, 10.2899], "hero_image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80"},
-}
+def load_destinations_json() -> dict[str, dict[str, Any]]:
+    json_path = Path(__file__).with_name("destinations.json")
+    if not json_path.exists():
+        return {
+            "HAN": {"id": "ha-noi", "name": "Hà Nội", "region": "Miền Bắc", "category_type": "city", "tags": ["city", "thanh_pho", "culture", "van_hoa", "history", "lich_su", "food"], "coordinates": [105.8542, 21.0285], "hero_image": "https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=1200&q=80"},
+            "HUE": {"id": "hue", "name": "Huế", "region": "Miền Trung", "category_type": "heritage", "tags": ["heritage", "di_san", "history", "lich_su", "culture", "van_hoa"], "coordinates": [107.5847, 16.4637], "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=80"},
+            "DAD": {"id": "da-nang", "name": "Đà Nẵng", "region": "Miền Trung", "category_type": "beach", "tags": ["beach", "bien", "city", "thanh_pho", "resort", "nghi_duong"], "coordinates": [108.2022, 16.0544], "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80"},
+            "DLD": {"id": "da-lat", "name": "Đà Lạt", "region": "Tây Nguyên", "category_type": "mountain", "tags": ["mountain", "nui_doi", "nature", "thien_nhien", "khi_hau_mat_moe"], "coordinates": [108.4419, 11.9404], "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80"},
+            "PQC": {"id": "phu-quoc", "name": "Phú Quốc", "region": "Miền Nam", "category_type": "island", "tags": ["island", "dao", "beach", "bien", "luxury", "nghi_duong"], "coordinates": [103.963, 10.2899], "hero_image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80"},
+        }
+    items = json.loads(json_path.read_text(encoding="utf-8"))
+    return {item.get("code", item["id"].upper()): item for item in items}
+
+
+DESTINATIONS: dict[str, dict[str, Any]] = load_destinations_json()
 
 CATEGORY_MAP = {"accommodation": "stay", "food": "food", "activity": "activity"}
 MEAL_SLOTS = ("breakfast", "lunch", "dinner")
@@ -38,7 +47,8 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
     if not records:
         raise ValueError("Generated dataset is empty")
 
-    unknown_destination_ids = {record.get("destination_id") for record in records} - set(DESTINATIONS)
+    dest_map = load_destinations_json()
+    unknown_destination_ids = {record.get("destination_id") for record in records} - set(dest_map)
     if unknown_destination_ids:
         raise ValueError(f"Unknown destination ids in generated dataset: {sorted(unknown_destination_ids)}")
 
@@ -71,7 +81,7 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
 
         services.append({
             "id": record["id"],
-            "destination_id": DESTINATIONS[raw_destination_id]["id"],
+            "destination_id": dest_map[raw_destination_id]["id"],
             "category": category,
             "subtype": subtype,
             "name": record["name"],
@@ -90,6 +100,6 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
 
     return {
         "metadata": {"version": "mock-generated-v1", "source": "mock-generated", "updated_at": updated_at},
-        "destinations": [details for raw_id, details in DESTINATIONS.items() if raw_id in destination_ids],
+        "destinations": [details for raw_id, details in dest_map.items() if raw_id in destination_ids],
         "services": services,
     }

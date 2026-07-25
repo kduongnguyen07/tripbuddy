@@ -1,0 +1,57 @@
+[
+  {
+    "id": "ha-noi",
+    "code": "HAN",
+    "name": "Hà Nội",
+    "region": "Miền Bắc",
+    "category_type": "city",
+    "tags": ["city", "thanh_pho", "culture", "van_hoa", "history", "lich_su", "food", "am_thuc", "capital", "thu_do"],
+    "coordinates": [105.8542, 21.0285],
+    "hero_image": "https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=1200&q=80",
+    "description": "Thủ đô ngàn năm văn hiến với phố cổ, văn hóa lâu đời và ẩm thực truyền thống phong phú."
+  },
+  {
+    "id": "hue",
+    "code": "HUE",
+    "name": "Huế",
+    "region": "Miền Trung",
+    "category_type": "heritage",
+    "tags": ["heritage", "di_san", "history", "lich_su", "culture", "van_hoa", "river", "song_huong", "food", "am_thuc_co_do"],
+    "coordinates": [107.5847, 16.4637],
+    "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=80",
+    "description": "Cố đô tĩnh lặng với quần thể di tích triều Nguyễn, kinh thành cổ kính và dòng sông Hương thơ mộng."
+  },
+  {
+    "id": "da-nang",
+    "code": "DAD",
+    "name": "Đà Nẵng",
+    "region": "Miền Trung",
+    "category_type": "beach",
+    "tags": ["beach", "bien", "city", "thanh_pho", "modern", "hien_dai", "resort", "nghi_duong", "entertainment", "giai_tri"],
+    "coordinates": [108.2022, 16.0544],
+    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80",
+    "description": "Thành phố biển năng động với bãi biển Mỹ Khê top thế giới, Cầu Rồng và Sun World Bà Nà Hills."
+  },
+  {
+    "id": "da-lat",
+    "code": "DLD",
+    "name": "Đà Lạt",
+    "region": "Tây Nguyên",
+    "category_type": "mountain",
+    "tags": ["mountain", "nui_doi", "nature", "thien_nhien", "cool_climate", "khi_hau_mat_moe", "romantic", "tho_mong", "check_in", "cafe"],
+    "coordinates": [108.4419, 11.9404],
+    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80",
+    "description": "Thành phố ngàn hoa trên cao nguyên mộng mơ với khí hậu se lạnh, rừng thông và hàng trăm quán cà phê check-in."
+  },
+  {
+    "id": "phu-quoc",
+    "code": "PQC",
+    "name": "Phú Quốc",
+    "region": "Miền Nam",
+    "category_type": "island",
+    "tags": ["island", "dao", "beach", "bien", "luxury", "sang_trong", "resort", "nghi_duong", "sunset", "hoang_hon", "theme_park"],
+    "coordinates": [103.963, 10.2899],
+    "hero_image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80",
+    "description": "Đảo ngọc thiên đường nghỉ dưỡng với bãi biển hoang sơ, đại dương ngọc bích, hoàng hôn rực rỡ và resort 5 sao."
+  }
+]

@@ -6,7 +6,7 @@ import { Download, FileText, CheckCircle2, Printer } from 'lucide-react';
 import { OptimizationResult } from '../../types';
 
 interface ExporterProps {
-  result: OptimizationResult;
+  result: any;
   timelineElementId: string;
 }
 

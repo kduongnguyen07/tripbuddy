@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.catalog import CatalogRepository
-from backend.planner import PlanInfeasible, apply_swap, generate_plan, recommend_destinations, swap_options
+from backend.planner import PlanInfeasible, apply_swap, generate_plan, get_similar_destinations, recommend_destinations, swap_options
 from backend.schemas import (
     ApplySwapRequest,
     GeneratePlanRequest,
@@ -98,6 +98,14 @@ def apply_plan_swap(request: ApplySwapRequest):
         return apply_swap(request, get_catalog())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/v1/destinations/{destination_id}/similar")
+def get_similar(destination_id: str, limit: int = 3):
+    try:
+        return get_similar_destinations(destination_id, get_catalog(), limit)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 if __name__ == "__main__":

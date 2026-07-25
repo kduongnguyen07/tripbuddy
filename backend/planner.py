@@ -404,3 +404,45 @@ def apply_swap(request: ApplySwapRequest, catalog: CatalogRepository) -> dict[st
     ]
     updated = state.model_copy(update={"selections": selections})
     return materialize_plan(updated, catalog)
+
+
+def get_similar_destinations(destination_id: str, catalog: CatalogRepository, limit: int = 3) -> dict[str, Any]:
+    target = catalog.destination(destination_id)
+    if not target:
+        raise ValueError("Unknown destination_id")
+
+    target_tags = set(tag.casefold() for tag in target.get("tags", []))
+    target_type = target.get("category_type", "")
+    target_region = target.get("region", "")
+
+    similarities = []
+    for dest in catalog.destinations():
+        if dest["id"] == destination_id:
+            continue
+        dest_tags = set(tag.casefold() for tag in dest.get("tags", []))
+        intersection = target_tags.intersection(dest_tags)
+        union = target_tags.union(dest_tags)
+
+        jaccard = len(intersection) / len(union) if union else 0.0
+        bonus = 0.0
+        if dest.get("category_type") == target_type and target_type:
+            bonus += 0.25
+        if dest.get("region") == target_region and target_region:
+            bonus += 0.1
+
+        score = min(99.0, round((jaccard + bonus) * 100, 1))
+        similarities.append({
+            "destination": dest,
+            "similarity_score": score,
+            "matching_tags": sorted(list(intersection)),
+            "reason": f"Chung {len(intersection)} đặc trưng ({', '.join(sorted(list(intersection))[:3])})",
+        })
+
+    similarities.sort(key=lambda item: (-item["similarity_score"], item["destination"]["name"]))
+    return {
+        "status": "success",
+        "target_destination": target,
+        "similar_destinations": similarities[:limit],
+        **catalog_metadata(catalog),
+    }
+

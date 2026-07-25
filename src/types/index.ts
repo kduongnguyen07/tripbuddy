@@ -1,3 +1,172 @@
+export type PriorityLevel = 'none' | 'normal' | 'important' | 'very_important';
+
+export type LodgingStyle = 'casual' | 'check_in' | 'luxury' | 'nature' | 'scenic_view' | 'street_food';
+export type FoodStyle = 'asian_food' | 'casual' | 'fast_food' | 'fine_dining' | 'healthy' | 'local_specialty' | 'scenic_view' | 'seafood' | 'vegetarian' | 'western_food';
+export type ActivityStyle = 'check_in' | 'culture' | 'entertainment' | 'history' | 'nature' | 'scenic_view' | 'shopping' | 'street_food';
+export type DestinationId = 'ha-noi' | 'hue' | 'da-nang' | 'da-lat' | 'phu-quoc';
+
+export interface Priorities {
+  stay: PriorityLevel;
+  food: PriorityLevel;
+  activity: PriorityLevel;
+}
+
+export interface Preferences {
+  lodging_styles: LodgingStyle[];
+  food_styles: FoodStyle[];
+  activity_styles: ActivityStyle[];
+}
+
+export interface TripCriteria {
+  total_budget: number;
+  people: number;
+  num_days: number;
+  priorities: Priorities;
+  preferences: Preferences;
+}
+
+export interface GeneratePlanRequest extends TripCriteria {
+  destination_id: DestinationId;
+}
+
+export interface RecommendDestinationsRequest extends TripCriteria {
+  limit?: number;
+}
+
+export interface PlanSelection {
+  service_id: string;
+  day: number;
+  slot: string;
+}
+
+export interface PlanState {
+  destination_id: DestinationId;
+  total_budget: number;
+  people: number;
+  num_days: number;
+  priorities: Priorities;
+  preferences: Preferences;
+  selections: PlanSelection[];
+  catalog_version: string;
+}
+
+export interface SwapOptionsRequest {
+  plan_state: PlanState;
+  target: PlanSelection;
+}
+
+export interface ApplySwapRequest extends SwapOptionsRequest {
+  replacement_service_id: string;
+}
+
+export interface PlanServiceItem {
+  id: string;
+  destination_id: string;
+  category: 'stay' | 'food' | 'activity';
+  subtype: string;
+  name: string;
+  price_vnd: number;
+  price_unit: 'per_person' | 'per_room';
+  total_cost_vnd: number;
+  display_cost_vnd?: number;
+  capacity: number;
+  duration_hours: number;
+  time_window: string;
+  rating: number;
+  tags: string[];
+  image_url: string;
+  affiliate_url?: string | null;
+  source?: string;
+  updated_at?: string;
+  day?: number;
+  slot?: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface DailyItineraryDayCosts {
+  stay: number;
+  food: number;
+  activity: number;
+}
+
+export interface DailyItineraryDayPlan {
+  day: number;
+  events: PlanServiceItem[];
+  costs: DailyItineraryDayCosts;
+  total_cost_vnd: number;
+}
+
+export interface BudgetAllocationCategory {
+  amount_vnd: number;
+  percentage: number;
+}
+
+export interface BudgetOverview {
+  total_vnd: number;
+  allocated_vnd: number;
+  remaining_vnd: number;
+  per_person_vnd: number;
+  allocations: {
+    stay: BudgetAllocationCategory;
+    food: BudgetAllocationCategory;
+    activity: BudgetAllocationCategory;
+  };
+}
+
+export interface MaterializedPlan {
+  status: 'success' | 'infeasible' | 'error';
+  reason?: string;
+  minimum_cost_vnd?: number;
+  shortfall_vnd?: number;
+  message?: string;
+  destination?: {
+    id: string;
+    name: string;
+    region: string;
+    coordinates: [number, number];
+    hero_image: string;
+  };
+  trip?: {
+    people: number;
+    num_days: number;
+    nights: number;
+  };
+  budget?: BudgetOverview;
+  daily_itinerary?: DailyItineraryDayPlan[];
+  plan_state?: PlanState;
+  data_version?: string;
+  data_source?: string;
+  data_updated_at?: string;
+}
+
+export interface DestinationRecommendation {
+  destination: {
+    id: string;
+    name: string;
+    region: string;
+    coordinates: [number, number];
+    hero_image: string;
+  };
+  estimated_minimum_cost_vnd: number;
+  remaining_vnd: number;
+  fit_score: number;
+}
+
+export interface SwapOptionsResponse {
+  status: string;
+  target: PlanSelection;
+  alternatives: PlanServiceItem[];
+  data_version?: string;
+}
+
+export interface SimilarDestinationResult {
+  destination: Destination;
+  similarity_score: number;
+  matching_tags: string[];
+  reason: string;
+}
+
 export interface ActivityItem {
   id: string;
   name: string;
@@ -18,7 +187,7 @@ export interface Destination {
   id: string;
   name: string;
   region: string;
-  coordinates: [number, number]; // [longitude, latitude]
+  coordinates: [number, number];
   hero_image: string;
   gallery_images: string[];
   satisfaction_scores: {
@@ -29,6 +198,7 @@ export interface Destination {
   };
   activities: ActivityItem[];
   travel_tips?: TravelTipItem[];
+  minimum_two_day_cost_vnd?: number;
 }
 
 export interface CategoryAllocation {
@@ -100,3 +270,4 @@ export interface HeroConfig {
   backgroundImage: string;
   ctaButtonText: string;
 }
+

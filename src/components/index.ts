@@ -21,10 +21,16 @@ export { UniqueExperiencesSection } from './sections/UniqueExperiencesSection';
 export { DestinationDetailSection } from './destination/DestinationDetailSection';
 export { DestinationDetailModal } from './destination/DestinationDetailModal';
 export { DestinationGallery } from './destination/DestinationGallery';
+export { SimilarDestinationsWidget } from './destination/SimilarDestinationsWidget';
 
 // Itinerary & Optimization components
 export { ItineraryCanvas } from './itinerary/ItineraryCanvas';
 export { BudgetOptimizerControls } from './itinerary/BudgetOptimizerControls';
+export { TripConfigForm } from './itinerary/TripConfigForm';
+export { BudgetDashboard } from './itinerary/BudgetDashboard';
+export { ItineraryTimeline } from './itinerary/ItineraryTimeline';
+export { SwapItemModal } from './itinerary/SwapItemModal';
+export { PlanResultPage } from './itinerary/PlanResultPage';
 
 // Admin components
 export { AdminDashboardModal } from './admin/AdminDashboardModal';
