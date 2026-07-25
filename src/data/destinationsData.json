@@ -343,5 +343,101 @@
         "image": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80"
       }
     ]
+  },
+  {
+    "id": "hue",
+    "name": "Huế - Cố Đô Di Sản Triều Nguyễn & Sông Hương",
+    "region": "Miền Trung",
+    "coordinates": [
+      107.5847,
+      16.4637
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 9.2,
+      "food": 9.7,
+      "transport": 8.7,
+      "activities": 9.5
+    },
+    "activities": [
+      {
+        "id": "hue_1",
+        "name": "Tham quan Đại Nội Cố Đô Huế & Lăng Khải Định",
+        "cost": 200000,
+        "category": "activities",
+        "duration_hrs": 4,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "hue_2",
+        "name": "Đi thuyền Ca Huế trên Sông Hương & Chùa Thiên Mụ",
+        "cost": 150000,
+        "category": "activities",
+        "duration_hrs": 2.5,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "hue_3",
+        "name": "Thưởng thức Bún Bò Huế & Bánh Bèo Cung Đình",
+        "cost": 90000,
+        "category": "food",
+        "duration_hrs": 1.5,
+        "score": 9.9,
+        "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80"
+      }
+    ]
+  },
+  {
+    "id": "da-lat",
+    "name": "Đà Lạt - Thành Phố Ngàn Hoa & Sương Mù",
+    "region": "Tây Nguyên",
+    "coordinates": [
+      108.4419,
+      11.9404
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 9.5,
+      "food": 9.1,
+      "transport": 8.5,
+      "activities": 9.6
+    },
+    "activities": [
+      {
+        "id": "dl_1",
+        "name": "Săn mây Đồi Chè Cầu Đất & Check-in Hồ Tuyền Lâm",
+        "cost": 100000,
+        "category": "activities",
+        "duration_hrs": 4,
+        "score": 9.7,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "dl_2",
+        "name": "Trải nghiệm Xe trượt Datanla & Thung lũng Tình Yêu",
+        "cost": 250000,
+        "category": "activities",
+        "duration_hrs": 3,
+        "score": 9.5,
+        "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "dl_3",
+        "name": "Thưởng thức Lẩu Gà Lá É & Bánh Căn Đêm Đà Lạt",
+        "cost": 180000,
+        "category": "food",
+        "duration_hrs": 2,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80"
+      }
+    ]
   }
 ]
