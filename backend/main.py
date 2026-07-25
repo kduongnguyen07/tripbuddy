@@ -5,10 +5,13 @@ import uuid
 from datetime import datetime
 from functools import lru_cache
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
 from backend.catalog import CatalogRepository
+from backend.database import get_db, engine, Base
+from backend.models import DestinationModel, ServiceModel, SavedPlanModel
 from backend.planner import PlanInfeasible, apply_swap, generate_plan, get_similar_destinations, recommend_destinations, swap_options
 from backend.schemas import (
     ApplySwapRequest,
@@ -16,11 +19,14 @@ from backend.schemas import (
     RecommendDestinationsRequest,
     SwapOptionsRequest,
 )
+from backend.seed_db import seed_database
+
+# Create DB tables automatically on server start
+Base.metadata.create_all(bind=engine)
 
 
-@lru_cache
-def get_catalog() -> CatalogRepository:
-    return CatalogRepository()
+def get_catalog(db: Session = Depends(get_db)) -> CatalogRepository:
+    return CatalogRepository(db=db)
 
 
 def _allowed_origins() -> list[str]:
@@ -30,8 +36,8 @@ def _allowed_origins() -> list[str]:
 
 app = FastAPI(
     title="TripBudget Planning API",
-    description="Mock-data itinerary planning API for Vietnam travel.",
-    version="2.0.0",
+    description="Planning API backed by PostgreSQL (Neon) Database.",
+    version="3.0.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -43,23 +49,28 @@ app.add_middleware(
 
 
 @app.get("/")
-def read_root():
-    catalog = get_catalog()
+def read_root(catalog: CatalogRepository = Depends(get_catalog)):
     return {"app": "TripBudget Planning API", "status": "online", "docs": "/docs", "data_version": catalog.version}
 
 
 @app.get("/api/v1/destinations")
-def get_destinations():
-    catalog = get_catalog()
+def get_destinations(catalog: CatalogRepository = Depends(get_catalog)):
     destinations = []
     for destination in catalog.destinations():
-        # A 2-day, one-person estimate keeps this endpoint independent of a trip form.
-        stay = min(service.cost_for_group(1, 1) for service in catalog.services_for(destination["id"], "stay"))
-        meals = sum(
-            min(service.cost_for_group(1) for service in catalog.services_for(destination["id"], "food") if service.time_window == slot)
-            for slot in ("breakfast", "lunch", "dinner")
+        stays = catalog.services_for(destination["id"], "stay")
+        stay_cost = min((service.cost_for_group(1, 1) for service in stays), default=500000)
+        
+        foods = catalog.services_for(destination["id"], "food")
+        b_meals = [s for s in foods if s.time_window == "breakfast"] or foods
+        l_meals = [s for s in foods if s.time_window == "lunch"] or foods
+        d_meals = [s for s in foods if s.time_window == "dinner"] or foods
+
+        meals_cost = (
+            min((s.cost_for_group(1) for s in b_meals), default=50000) +
+            min((s.cost_for_group(1) for s in l_meals), default=80000) +
+            min((s.cost_for_group(1) for s in d_meals), default=120000)
         )
-        destinations.append({**destination, "minimum_two_day_cost_vnd": stay + meals * 2})
+        destinations.append({**destination, "minimum_two_day_cost_vnd": stay_cost + meals_cost * 2})
     return {
         "status": "success",
         "count": len(destinations),
@@ -71,13 +82,12 @@ def get_destinations():
 
 
 @app.post("/api/v1/destinations/recommend")
-def recommend(request: RecommendDestinationsRequest):
-    return recommend_destinations(request, get_catalog())
+def recommend(request: RecommendDestinationsRequest, catalog: CatalogRepository = Depends(get_catalog)):
+    return recommend_destinations(request, catalog)
 
 
 @app.post("/api/v1/plans/generate")
-def generate(request: GeneratePlanRequest):
-    catalog = get_catalog()
+def generate(request: GeneratePlanRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
         return generate_plan(request, catalog)
     except PlanInfeasible as error:
@@ -87,39 +97,30 @@ def generate(request: GeneratePlanRequest):
 
 
 @app.post("/api/v1/plans/swap-options")
-def get_swap_options(request: SwapOptionsRequest):
+def get_swap_options(request: SwapOptionsRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
-        return swap_options(request, get_catalog())
+        return swap_options(request, catalog)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/v1/plans/apply-swap")
-def apply_plan_swap(request: ApplySwapRequest):
+def apply_plan_swap(request: ApplySwapRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
-        return apply_swap(request, get_catalog())
+        return apply_swap(request, catalog)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.get("/api/v1/destinations/{destination_id}/similar")
-def get_similar(destination_id: str, limit: int = 3):
+def get_similar(destination_id: str, limit: int = 3, catalog: CatalogRepository = Depends(get_catalog)):
     try:
-        return get_similar_destinations(destination_id, get_catalog(), limit)
+        return get_similar_destinations(destination_id, catalog, limit)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 # --- ONLINE POSTGRESQL / DATABASE API ENDPOINTS ---
-from typing import Any
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from backend.database import get_db, engine, Base
-from backend.models import DestinationModel, ServiceModel, SavedPlanModel
-from backend.seed_db import seed_database
-
-# Create DB tables automatically on server start
-Base.metadata.create_all(bind=engine)
 
 
 @app.get("/api/v1/db/services")

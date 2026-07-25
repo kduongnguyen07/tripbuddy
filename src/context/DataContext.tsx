@@ -18,6 +18,7 @@ interface DataContextType {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   destinations: Destination[];
+  destinationsError: string | null;
   slides: JourneySlide[];
   heroConfig: HeroConfig;
   isCloudSynced: boolean;
@@ -97,35 +98,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     'phu-quoc': 'PQC',
   };
 
-  const [destinations, setDestinations] = useState<Destination[]>(() => {
-    try {
-      const currentVersion = localStorage.getItem('tripbudget_dataset_version');
-      if (currentVersion !== DATASET_VERSION) {
-        localStorage.removeItem('tripbudget_destinations');
-        localStorage.setItem('tripbudget_dataset_version', DATASET_VERSION);
-      }
-
-      const deletedSet = new Set(getDeletedDestIds());
-      const saved = localStorage.getItem('tripbudget_destinations');
-      if (saved !== null && currentVersion === DATASET_VERSION) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= (destinationsData as Destination[]).length) {
-          const normalized = (parsed as Destination[]).map((d) => ({
-            ...d,
-            id: CANONICAL_ID_MAP[d.id] || d.id,
-          }));
-          return normalized.filter((d) => !deletedSet.has(d.id));
-        }
-      }
-      const defaultDests = (destinationsData as Destination[]).map((d) => ({
-        ...d,
-        id: CANONICAL_ID_MAP[d.id] || d.id,
-      }));
-      return defaultDests.filter((d) => !deletedSet.has(d.id));
-    } catch {
-      return destinationsData as Destination[];
-    }
-  });
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinationsError, setDestinationsError] = useState<string | null>(null);
 
   const [slides, setSlides] = useState<JourneySlide[]>(() => {
     try {
@@ -163,11 +137,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  // Sync to LocalStorage on changes
-  useEffect(() => {
-    localStorage.setItem('tripbudget_destinations', JSON.stringify(destinations));
-  }, [destinations]);
-
   useEffect(() => {
     localStorage.setItem('tripbudget_slides', JSON.stringify(slides));
   }, [slides]);
@@ -176,15 +145,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
-  // Load latest Database & Cloud DB data on application mount safely
+  // Load destinations strictly from backend Database
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
       setIsSyncingCloud(true);
+      setDestinationsError(null);
       const deletedDestsSet = new Set(getDeletedDestIds());
-      const deletedSlidesSet = new Set(getDeletedSlideIds());
 
-      // 1. Try loading destinations directly from backend Database endpoint
       try {
         const dbRes = await fetch(`${API_BASE_URL}/db/destinations`);
         if (dbRes.ok) {
@@ -202,12 +170,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               });
             if (isMounted) {
               setDestinations(filtered);
-              localStorage.setItem('tripbudget_destinations', JSON.stringify(filtered));
             }
+          } else {
+            if (isMounted) setDestinationsError('Không thể tải danh sách điểm đến từ Database backend.');
           }
+        } else {
+          if (isMounted) setDestinationsError(`Lỗi kết nối Backend Database (HTTP ${dbRes.status}).`);
         }
       } catch (dbErr) {
-        console.warn('Backend DB offline, fallback to local storage cache for destinations:', dbErr);
+        console.error('Lỗi kết nối Backend Database:', dbErr);
+        if (isMounted) setDestinationsError('Không thể kết nối Backend Database. Vui lòng đảm bảo server backend (Neon Postgres) đang hoạt động.');
       }
 
       if (isMounted) {
@@ -408,6 +380,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         theme,
         toggleTheme,
         destinations,
+        destinationsError,
         slides,
         heroConfig,
         isCloudSynced,

@@ -98,129 +98,72 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
 }
 
 export async function fetchDestinationsApi(): Promise<Destination[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/destinations`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.destinations)) {
-        return data.destinations.map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          region: d.region,
-          coordinates: d.coordinates || [105.8542, 21.0285],
-          hero_image: d.hero_image,
-          gallery_images: [d.hero_image],
-          satisfaction_scores: { stay: 9.0, food: 9.2, transport: 8.8, activities: 9.5 },
-          activities: [],
-          minimum_two_day_cost_vnd: d.minimum_two_day_cost_vnd || 1200000,
-        }));
-      }
+  const res = await fetch(`${API_BASE_URL}/destinations`);
+  if (res.ok) {
+    const data = await res.json();
+    if (data.status === 'success' && Array.isArray(data.destinations)) {
+      return data.destinations.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        region: d.region,
+        coordinates: d.coordinates || [105.8542, 21.0285],
+        hero_image: d.hero_image,
+        gallery_images: [d.hero_image],
+        satisfaction_scores: { stay: 9.0, food: 9.2, transport: 8.8, activities: 9.5 },
+        activities: [],
+        minimum_two_day_cost_vnd: d.minimum_two_day_cost_vnd || 1200000,
+      }));
     }
-  } catch (e) {
-    console.warn('Backend /destinations offline, using static destinations list:', e);
   }
-  return destinationsData as Destination[];
+  const errText = await res.text().catch(() => '');
+  throw new Error(`Không thể lấy danh sách điểm đến từ Backend API (${res.status}): ${errText}`);
 }
 
 export async function recommendDestinationsApi(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/destinations/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.recommendations)) {
-        return data.recommendations;
-      }
-    }
-  } catch (e) {
-    console.warn('Backend /destinations/recommend offline, using local recommendation fallback:', e);
-  }
-
-  // Client-side fallback for destination recommendation
-  const all = (destinationsData as Destination[]).slice(0, req.limit || 5);
-  return all.map((d, index) => {
-    const estMin = Math.round((d.minimum_two_day_cost_vnd || 1500000) * (req.num_days / 2) * req.people);
-    const fitScore = Math.max(70, 98 - index * 6);
-    return {
-      destination: {
-        id: d.id,
-        name: d.name,
-        region: d.region,
-        coordinates: d.coordinates,
-        hero_image: d.hero_image,
-      },
-      estimated_minimum_cost_vnd: estMin,
-      remaining_vnd: Math.max(0, req.total_budget - estMin),
-      fit_score: fitScore,
-    };
+  const res = await fetch(`${API_BASE_URL}/destinations/recommend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
   });
+  if (res.ok) {
+    const data = await res.json();
+    if (data.status === 'success' && Array.isArray(data.recommendations)) {
+      return data.recommendations;
+    }
+  }
+  const errText = await res.text().catch(() => '');
+  throw new Error(`Không thể gợi ý điểm đến từ Backend API (${res.status}): ${errText}`);
 }
 
 export async function getSimilarDestinationsApi(
   destinationId: string,
   limit: number = 3
 ): Promise<import('../types').SimilarDestinationResult[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/destinations/${destinationId}/similar?limit=${limit}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.similar_destinations)) {
-        return data.similar_destinations.map((item: any) => ({
-          destination: {
-            id: item.destination.id,
-            name: item.destination.name,
-            region: item.destination.region,
-            coordinates: item.destination.coordinates || [105.8, 21.0],
-            hero_image: item.destination.hero_image,
-            gallery_images: [item.destination.hero_image],
-            satisfaction_scores: { stay: 9.0, food: 9.0, transport: 9.0, activities: 9.0 },
-            activities: [],
-          },
-          similarity_score: item.similarity_score,
-          matching_tags: item.matching_tags || [],
-          reason: item.reason || 'Gợi ý tương tự theo đặc trưng',
-        }));
-      }
+  const res = await fetch(`${API_BASE_URL}/destinations/${destinationId}/similar?limit=${limit}`);
+  if (res.ok) {
+    const data = await res.json();
+    if (data.status === 'success' && Array.isArray(data.similar_destinations)) {
+      return data.similar_destinations.map((item: any) => ({
+        destination: {
+          id: item.destination.id,
+          name: item.destination.name,
+          region: item.destination.region,
+          coordinates: item.destination.coordinates || [105.8, 21.0],
+          hero_image: item.destination.hero_image,
+          gallery_images: [item.destination.hero_image],
+          satisfaction_scores: { stay: 9.0, food: 9.0, transport: 9.0, activities: 9.0 },
+          activities: [],
+        },
+        similarity_score: item.similarity_score,
+        matching_tags: item.matching_tags || [],
+        reason: item.reason || 'Gợi ý tương tự theo đặc trưng',
+      }));
     }
-  } catch (e) {
-    console.warn('Backend /destinations/{id}/similar offline, using client-side tag similarity fallback:', e);
   }
-
-  const tagMap: Record<string, string[]> = {
-    'ha-noi': ['city', 'thanh_pho', 'culture', 'van_hoa', 'history', 'lich_su', 'food'],
-    'hue': ['heritage', 'di_san', 'history', 'lich_su', 'culture', 'van_hoa', 'river'],
-    'da-nang': ['beach', 'bien', 'city', 'thanh_pho', 'modern', 'resort'],
-    'da-lat': ['mountain', 'nui_doi', 'nature', 'thien_nhien', 'cool_climate'],
-    'phu-quoc': ['island', 'dao', 'beach', 'bien', 'luxury', 'resort'],
-  };
-
-  const destList = destinationsData as Destination[];
-  const targetTags = new Set(tagMap[destinationId] || ['city', 'culture']);
-
-  const results = destList
-    .filter((d) => d.id !== destinationId)
-    .map((d) => {
-      const dTags = new Set(tagMap[d.id] || ['city']);
-      const intersection = [...targetTags].filter((x) => dTags.has(x));
-      const union = new Set([...targetTags, ...dTags]);
-      const jaccard = union.size > 0 ? intersection.length / union.size : 0;
-      const score = Math.min(99, Math.round(jaccard * 100 + (intersection.length > 0 ? 20 : 5)));
-
-      return {
-        destination: d,
-        similarity_score: score,
-        matching_tags: intersection,
-        reason: `Chung ${intersection.length} đặc trưng (${intersection.join(', ')})`,
-      };
-    })
-    .sort((a, b) => b.similarity_score - a.similarity_score);
-
-  return results.slice(0, limit);
+  const errText = await res.text().catch(() => '');
+  throw new Error(`Không thể tìm điểm đến tương tự từ Backend API (${res.status}): ${errText}`);
 }
 
 export async function generatePlanApi(req: GeneratePlanRequest): Promise<MaterializedPlan> {

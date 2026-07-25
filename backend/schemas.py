@@ -22,7 +22,7 @@ ActivityStyle = Literal[
     "check_in", "culture", "entertainment", "history", "nature",
     "scenic_view", "shopping", "street_food",
 ]
-DestinationId = Literal["ha-noi", "hue", "da-nang", "da-lat", "phu-quoc"]
+DestinationId = Literal["ha-noi", "hue", "da-nang", "da-lat", "phu-quoc", "HAN", "HUE", "DAD", "DLD", "DLT", "PQC"]
 
 
 class Priorities(BaseModel):
