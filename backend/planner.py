@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil
 from typing import Any, Iterable
 
 import pulp
@@ -32,6 +31,14 @@ SLOT_TIMES = {
     "dinner": ("19:00", "20:30"),
     "evening": ("20:30", "22:30"),
 }
+SLOT_DURATIONS_HOURS = {
+    "breakfast": 1.0,
+    "morning": 2.5,
+    "lunch": 1.0,
+    "afternoon": 3.0,
+    "dinner": 1.5,
+    "evening": 2.0,
+}
 
 
 class PlanInfeasible(Exception):
@@ -41,6 +48,13 @@ class PlanInfeasible(Exception):
         self.reason = reason
 
     def response(self, catalog: CatalogRepository) -> dict[str, Any]:
+        messages = {
+            "minimum_cost": "Ngân sách hiện tại không đủ để xây dựng lịch trình phù hợp. Vui lòng tăng ngân sách hoặc rút ngắn thời gian chuyến đi.",
+            "no_matching_accommodation": "Không có nơi ở phù hợp với sở thích đã chọn cho chuyến đi này.",
+            "no_matching_meals": "Không đủ lựa chọn bữa sáng, trưa hoặc tối phù hợp với sở thích đã chọn.",
+            "no_matching_activities": "Không đủ hoạt động phù hợp, không lặp lại để xếp cho toàn bộ số ngày đã chọn.",
+            "no_feasible_schedule": "Không thể xếp lịch thỏa đồng thời ngân sách, các bữa ăn và hoạt động không trùng khung giờ.",
+        }
         return {
             "status": "infeasible",
             "reason": self.reason,
@@ -48,6 +62,7 @@ class PlanInfeasible(Exception):
             "shortfall_vnd": max(0, self.minimum_cost - self.total_budget),
             "message": "Ngân sách hiện tại không đủ để xây dựng lịch trình phù hợp. Vui lòng tăng ngân sách hoặc rút ngắn thời gian chuyến đi.",
             **catalog_metadata(catalog),
+            "message": messages.get(self.reason, "Không thể xây dựng lịch trình với các điều kiện đã chọn."),
         }
 
 
@@ -76,22 +91,44 @@ def _filter_services(services: Iterable[Service], category: str, preferences: Pr
     return [service for service in values if requested_tags.intersection(tag.casefold() for tag in service.tags)]
 
 
+def _service_fits_slot(service: Service, slot: str) -> bool:
+    """A service must belong to its assigned fixed slot and fit inside it."""
+    if service.time_window != slot:
+        return False
+    maximum_duration = SLOT_DURATIONS_HOURS.get(slot)
+    return maximum_duration is None or service.duration_hours <= maximum_duration
+
+
+def _eligible_services(
+    catalog: CatalogRepository, destination_id: str, category: str, preferences: Preferences,
+) -> list[Service]:
+    return [
+        service
+        for service in _filter_services(catalog.services_for(destination_id, category), category, preferences)
+        if service.category == "stay" or _service_fits_slot(service, service.time_window)
+    ]
+
+
 def _priority(category: str, priorities: Priorities) -> float:
     return PRIORITY_WEIGHTS[getattr(priorities, category).value]
 
 
 def _minimum_cost(criteria: TripCriteria, catalog: CatalogRepository, destination_id: str) -> int:
     nights = max(0, criteria.num_days - 1)
-    stay = _filter_services(catalog.services_for(destination_id, "stay"), "stay", criteria.preferences)
-    food = _filter_services(catalog.services_for(destination_id, "food"), "food", criteria.preferences)
+    stay = _eligible_services(catalog, destination_id, "stay", criteria.preferences)
+    food = _eligible_services(catalog, destination_id, "food", criteria.preferences)
+    activities = _eligible_services(catalog, destination_id, "activity", criteria.preferences)
     food_by_slot = {slot: [item for item in food if item.time_window == slot] for slot in MEAL_SLOTS}
     if nights and not stay:
         raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_accommodation")
     if any(not options for options in food_by_slot.values()):
         raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_meals")
+    if len(activities) < criteria.num_days:
+        raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_activities")
     lodging_cost = min(item.cost_for_group(criteria.people, nights) for item in stay) if nights else 0
     meals_cost = criteria.num_days * sum(min(item.cost_for_group(criteria.people) for item in food_by_slot[slot]) for slot in MEAL_SLOTS)
-    return lodging_cost + meals_cost
+    activity_cost = sum(sorted(service.cost_for_group(criteria.people) for service in activities)[:criteria.num_days])
+    return lodging_cost + meals_cost + activity_cost
 
 
 def _validate_destination(catalog: CatalogRepository, destination_id: str) -> dict[str, Any]:
@@ -121,9 +158,9 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
         raise PlanInfeasible(minimum_cost, request.total_budget)
 
     nights = max(0, request.num_days - 1)
-    stay = _filter_services(catalog.services_for(request.destination_id, "stay"), "stay", request.preferences)
-    food = _filter_services(catalog.services_for(request.destination_id, "food"), "food", request.preferences)
-    activities = _filter_services(catalog.services_for(request.destination_id, "activity"), "activity", request.preferences)
+    stay = _eligible_services(catalog, request.destination_id, "stay", request.preferences)
+    food = _eligible_services(catalog, request.destination_id, "food", request.preferences)
+    activities = _eligible_services(catalog, request.destination_id, "activity", request.preferences)
     problem = pulp.LpProblem("tripbudget_plan", pulp.LpMaximize)
     variables: dict[tuple[str, int, str], pulp.LpVariable] = {}
 
@@ -144,6 +181,13 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
                 variables[(service.id, day, slot)] = pulp.LpVariable(f"activity_{day}_{slot}_{index}", cat="Binary")
             if candidates:
                 problem += pulp.lpSum(variables[(service.id, day, slot)] for service in candidates) <= 1
+        day_activity_variables = [
+            variables[(service.id, day, slot)]
+            for slot in ACTIVITY_SLOTS
+            for service in activities
+            if service.time_window == slot
+        ]
+        problem += pulp.lpSum(day_activity_variables) >= 1
 
     # An activity can only appear once in a plan. Meals and accommodation may recur.
     for service in activities:
@@ -192,6 +236,7 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
         raise ValueError("Catalog version has changed; generate the plan again")
     seen_activity_ids: set[str] = set()
     seen_slots: set[tuple[int, str]] = set()
+    intervals_by_day: dict[int, list[tuple[float, float]]] = {}
     for selection in state.selections:
         service = catalog.service(selection.service_id)
         if not service or service.destination_id != state.destination_id or service.time_window != selection.slot:
@@ -203,15 +248,35 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
                 raise ValueError("An activity cannot be repeated")
             seen_activity_ids.add(service.id)
         if selection.day and selection.slot in MEAL_SLOTS + ACTIVITY_SLOTS:
+            if not _service_fits_slot(service, selection.slot):
+                raise ValueError("Service duration does not fit its scheduled slot")
             marker = (selection.day, selection.slot)
             if marker in seen_slots:
                 raise ValueError("Overlapping selections are not allowed")
             seen_slots.add(marker)
+            start_time, _ = SLOT_TIMES[selection.slot]
+            start_hour, start_minute = (int(part) for part in start_time.split(":"))
+            interval_start = start_hour + start_minute / 60
+            interval_end = interval_start + service.duration_hours
+            for existing_start, existing_end in intervals_by_day.setdefault(selection.day, []):
+                if interval_start < existing_end and existing_start < interval_end:
+                    raise ValueError("Overlapping selections are not allowed")
+            intervals_by_day[selection.day].append((interval_start, interval_end))
     if sum(item.slot == "overnight" for item in state.selections) != (1 if state.num_days > 1 else 0):
         raise ValueError("Invalid accommodation selection")
     for day in range(1, state.num_days + 1):
         if {item.slot for item in state.selections if item.day == day}.issuperset(MEAL_SLOTS) is False:
             raise ValueError("Every day must contain three meals")
+        if not any(item.day == day and item.slot in ACTIVITY_SLOTS for item in state.selections):
+            raise ValueError("Every day must contain an activity")
+    if sum(_selection_cost(item, state, catalog) for item in state.selections) > state.total_budget:
+        raise ValueError("Plan exceeds total budget")
+
+
+def _end_time(start_time: str, duration_hours: float) -> str:
+    start_hour, start_minute = (int(part) for part in start_time.split(":"))
+    end_minutes = round((start_hour * 60 + start_minute) + duration_hours * 60)
+    return f"{(end_minutes // 60) % 24:02d}:{end_minutes % 60:02d}"
 
 
 def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, Any]:
@@ -230,7 +295,8 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
         if service.category == "stay":
             lodging = service
             continue
-        start_time, end_time = SLOT_TIMES[selection.slot]
+        start_time, _ = SLOT_TIMES[selection.slot]
+        end_time = _end_time(start_time, service.duration_hours)
         daily_events[selection.day].append({
             **service.as_dict(state.people),
             "day": selection.day,
@@ -315,7 +381,7 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     current_total = sum(_selection_cost(item, state, catalog) for item in state.selections)
     target_cost = _selection_cost(target, state, catalog)
     candidates = []
-    for service in catalog.services_for(state.destination_id, current.category):
+    for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
         if service.id == current.id or service.time_window != target.slot:
             continue
         if service.category == "activity" and service.id in occupied_activity_ids:
