@@ -28,6 +28,20 @@ function MainContent() {
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
 
+  // Auto-refresh main page state when admin updates dataset or destinations
+  const [, setRefreshTick] = useState<number>(0);
+  useEffect(() => {
+    const handleRefresh = () => {
+      setRefreshTick((t) => t + 1);
+    };
+    window.addEventListener('tripbudget_dataset_updated', handleRefresh);
+    window.addEventListener('storage', handleRefresh);
+    return () => {
+      window.removeEventListener('tripbudget_dataset_updated', handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
+    };
+  }, []);
+
   // Sync route with URL bar & popstate listener
   useEffect(() => {
     const checkRoute = () => {

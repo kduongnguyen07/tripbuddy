@@ -44,13 +44,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     return fullDatasetRaw as any[];
   });
 
-  const saveServicesList = (updated: any[]) => {
-    setServicesList(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('admin_tripbudget_dataset_500', JSON.stringify(updated));
-    }
-  };
-
   const [serviceDestFilter, setServiceDestFilter] = useState<string>('ALL');
   const [serviceCatFilter, setServiceCatFilter] = useState<string>('ALL');
   const [serviceSearchQuery, setServiceSearchQuery] = useState<string>('');
@@ -118,7 +111,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     return true;
   });
 
-  const handleSaveService = (e: React.FormEvent) => {
+  const saveServicesList = (updated: any[]) => {
+    setServicesList(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin_tripbudget_dataset_500', JSON.stringify(updated));
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new Event('tripbudget_dataset_updated'));
+    }
+    setIframeKey((prev) => prev + 1);
+  };
+
+  const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService || !editingService.name) return;
 
@@ -138,21 +141,38 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     if (isNewService) {
       const updated = [itemToSave, ...servicesList];
       saveServicesList(updated);
-      showToast('Đã thêm dịch vụ/hoạt động mới thành công!');
+      showToast('Đã thêm dịch vụ mới & cập nhật giao diện Web!');
     } else {
       const updated = servicesList.map((s) => (s.id === itemToSave.id ? itemToSave : s));
       saveServicesList(updated);
       showToast(`Đã lưu thay đổi cho dịch vụ ${itemToSave.name}!`);
     }
 
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/db/services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemToSave),
+      });
+    } catch (err) {
+      console.log('PostgreSQL sync note:', err);
+    }
+
     setEditingService(null);
   };
 
-  const handleDeleteService = (id: string) => {
-    if (window.confirm(`Xác nhận xóa dịch vụ ID "${id}" khỏi tập dữ liệu?`)) {
+  const handleDeleteService = async (id: string) => {
+    if (window.confirm(`Xác nhận xóa dịch vụ ID "${id}" khỏi tập dữ liệu & PostgreSQL Database?`)) {
       const updated = servicesList.filter((s) => s.id !== id);
       saveServicesList(updated);
-      showToast(`Đã xóa dịch vụ ${id}!`);
+
+      try {
+        await fetch(`http://127.0.0.1:8000/api/v1/db/services/${id}`, { method: 'DELETE' });
+      } catch (err) {
+        console.log('PostgreSQL delete note:', err);
+      }
+
+      showToast(`Đã xóa dịch vụ ${id} & tự động làm mới giao diện Web!`);
     }
   };
 
