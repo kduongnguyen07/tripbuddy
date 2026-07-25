@@ -130,11 +130,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
-  // Load latest Cloud DB data on application mount safely
+  // Load latest Database & Cloud DB data on application mount safely
   useEffect(() => {
     let isMounted = true;
-    const loadCloud = async () => {
+    const loadInitialData = async () => {
       setIsSyncingCloud(true);
+
+      // 1. Try loading destinations directly from backend Database endpoint
+      try {
+        const dbRes = await fetch('http://127.0.0.1:8000/api/v1/db/destinations');
+        if (dbRes.ok) {
+          const dbJson = await dbRes.json();
+          if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
+            if (isMounted) {
+              setDestinations(dbJson.destinations);
+              localStorage.setItem('tripbudget_destinations', JSON.stringify(dbJson.destinations));
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Backend DB offline, fallback to local storage cache for destinations:', dbErr);
+      }
+
+      // 2. Load latest cloud data fallback for slides and heroConfig
       const data = await fetchCloudData();
       if (data && isMounted) {
         const localUpdatedAt = localStorage.getItem('tripbudget_last_local_update');
@@ -143,9 +161,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Only overwrite local state if cloud data is newer or local data has never been edited
         if (!localTime || cloudTime >= localTime) {
-          if (data.destinations && Array.isArray(data.destinations)) {
-            setDestinations(data.destinations);
-          }
           if (data.slides && Array.isArray(data.slides)) {
             setSlides(data.slides);
           }
@@ -167,7 +182,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isMounted) setIsSyncingCloud(false);
     };
 
-    loadCloud();
+    loadInitialData();
     return () => { isMounted = false; };
   }, []);
 

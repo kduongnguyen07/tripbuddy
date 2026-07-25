@@ -23,6 +23,33 @@ class DestinationModel(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def as_dict(self):
+        scores = getattr(self, "satisfaction_scores", None)
+        if isinstance(scores, str):
+            try:
+                scores = json.loads(scores)
+            except Exception:
+                scores = {}
+        if not scores or not isinstance(scores, dict):
+            scores = {"stay": 9.0, "food": 9.2, "transport": 8.8, "activities": 9.5}
+
+        gallery = getattr(self, "gallery_images", None)
+        if isinstance(gallery, str):
+            try:
+                gallery = json.loads(gallery)
+            except Exception:
+                gallery = []
+        if not gallery or not isinstance(gallery, list):
+            gallery = [self.hero_image] if self.hero_image else []
+
+        acts = getattr(self, "activities", None)
+        if isinstance(acts, str):
+            try:
+                acts = json.loads(acts)
+            except Exception:
+                acts = []
+        if not isinstance(acts, list):
+            acts = []
+
         return {
             "id": self.id,
             "code": self.code or self.id.upper(),
@@ -30,9 +57,13 @@ class DestinationModel(Base):
             "region": self.region,
             "category_type": self.category_type,
             "tags": self.tags if isinstance(self.tags, list) else json.loads(self.tags or "[]"),
-            "coordinates": self.coordinates if isinstance(self.coordinates, list) else json.loads(self.coordinates or "[105.85, 21.02]"),
-            "hero_image": self.hero_image,
-            "description": self.description,
+            "coordinates": self.coordinates if isinstance(self.coordinates, list) else json.loads(self.coordinates or "[105.8542, 21.0285]"),
+            "hero_image": self.hero_image or "",
+            "gallery_images": gallery,
+            "satisfaction_scores": scores,
+            "activities": acts,
+            "description": self.description or "",
+            "minimum_two_day_cost_vnd": getattr(self, "minimum_two_day_cost_vnd", 1500000) or 1500000,
         }
 
 

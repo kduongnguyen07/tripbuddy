@@ -15,7 +15,10 @@ def seed_database():
 
     try:
         # 1. Seed Destinations if empty
-        dest_path = Path(__file__).with_name("destinations.json")
+        dest_path = Path(__file__).parent.parent / "src" / "data" / "destinationsData.json"
+        if not dest_path.exists():
+            dest_path = Path(__file__).with_name("destinations.json")
+
         if dest_path.exists():
             existing_dest_ids = set(r[0] for r in db.query(DestinationModel.id).all())
             dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
@@ -31,9 +34,9 @@ def seed_database():
                             region=d["region"],
                             category_type=d.get("category_type", "city"),
                             tags=d.get("tags", []),
-                            coordinates=d.get("coordinates", [105.85, 21.02]),
+                            coordinates=d.get("coordinates", [105.8542, 21.0285]),
                             hero_image=d.get("hero_image"),
-                            description=d.get("description"),
+                            description=d.get("description", ""),
                         )
                     )
             if new_dests:
