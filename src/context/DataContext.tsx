@@ -164,7 +164,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (dbRes.ok) {
           const dbJson = await dbRes.json();
           if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
-            const filtered = dbJson.destinations.filter((d: any) => !deletedDestsSet.has(d.id));
+            const filtered = dbJson.destinations
+              .filter((d: any) => !deletedDestsSet.has(d.id))
+              .map((d: any) => {
+                const defaultItem = (destinationsData as Destination[]).find(x => x.id === d.id);
+                return {
+                  ...defaultItem,
+                  ...d,
+                  activities: (d.activities && d.activities.length > 0) ? d.activities : (defaultItem?.activities || [])
+                };
+              });
             if (isMounted) {
               setDestinations(filtered);
               localStorage.setItem('tripbudget_destinations', JSON.stringify(filtered));
