@@ -229,11 +229,12 @@ export async function generatePlanApi(req: GeneratePlanRequest): Promise<Materia
       const data = await res.json();
       return data;
     }
-  } catch (e) {
-    console.warn('Backend /plans/generate offline, using local solver fallback with 500 dataset:', e);
+    const errText = await res.text();
+    throw new Error(`Backend API error (${res.status}): ${errText}`);
+  } catch (e: any) {
+    console.error('Backend /plans/generate offline or error:', e);
+    throw new Error('Không thể kết nối đến Backend Planning API. Vui lòng đảm bảo server backend đang chạy trên http://127.0.0.1:8000.');
   }
-
-  return getFallbackPlan(req);
 }
 
 export async function getSwapOptionsApi(req: SwapOptionsRequest): Promise<SwapOptionsResponse> {
@@ -249,11 +250,11 @@ export async function getSwapOptionsApi(req: SwapOptionsRequest): Promise<SwapOp
         return data;
       }
     }
-  } catch (e) {
-    console.warn('Backend /plans/swap-options offline, using dataset fallback:', e);
+    throw new Error('Backend returns error status');
+  } catch (e: any) {
+    console.error('Backend /plans/swap-options error:', e);
+    throw new Error('Không thể lấy danh sách thay thế dịch vụ từ Backend API.');
   }
-
-  return getFallbackSwapOptions(req);
 }
 
 export async function applySwapApi(req: ApplySwapRequest): Promise<MaterializedPlan> {
@@ -267,21 +268,11 @@ export async function applySwapApi(req: ApplySwapRequest): Promise<MaterializedP
       const data = await res.json();
       return data;
     }
-  } catch (e) {
-    console.warn('Backend /plans/apply-swap offline, using local swap fallback:', e);
+    throw new Error('Backend returns error status');
+  } catch (e: any) {
+    console.error('Backend /plans/apply-swap error:', e);
+    throw new Error('Không thể áp dụng thay đổi dịch vụ từ Backend API.');
   }
-
-  // Client-side fallback for applying swap
-  const state = req.plan_state;
-  const selections = state.selections.map((sel) => {
-    if (sel.day === req.target.day && sel.slot === req.target.slot) {
-      return { service_id: req.replacement_service_id, day: sel.day, slot: sel.slot };
-    }
-    return sel;
-  });
-
-  const updatedState = { ...state, selections };
-  return getFallbackPlanFromState(updatedState);
 }
 
 export function getActiveDataset(): any[] {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
@@ -133,10 +134,20 @@ def get_db_services(destination_id: str | None = None, category: str | None = No
 
 @app.post("/api/v1/db/services")
 def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depends(get_db)):
-    srv_id = service_data.get("id") or f"SRV_{service_data.get('destination_id', 'HAN')}_{int(datetime.now().timestamp())}"
+    dest_id = service_data.get("destination_id", "HAN")
+    target_dest = db.query(DestinationModel).filter(
+        (DestinationModel.id == dest_id) | (DestinationModel.code == dest_id.upper())
+    ).first()
+    if not target_dest:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Destination '{dest_id}' does not exist. Please specify a valid destination."
+        )
+
+    srv_id = service_data.get("id") or f"SRV_{target_dest.code}_{int(datetime.now().timestamp())}"
     db_srv = ServiceModel(
         id=srv_id,
-        destination_id=service_data.get("destination_id", "HAN"),
+        destination_id=target_dest.id,
         category=service_data.get("category", "activity"),
         sub_category=service_data.get("sub_category", "standard"),
         name=service_data.get("name", "Dịch vụ mới"),

@@ -1,57 +1,442 @@
 [
   {
-    "id": "ha-noi",
+    "id": "HAN",
     "code": "HAN",
-    "name": "Hà Nội",
+    "name": "Hà Nội - Thủ Đô Ngàn Năm Văn Hiến",
     "region": "Miền Bắc",
-    "category_type": "city",
-    "tags": ["city", "thanh_pho", "culture", "van_hoa", "history", "lich_su", "food", "am_thuc", "capital", "thu_do"],
-    "coordinates": [105.8542, 21.0285],
-    "hero_image": "https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=1200&q=80",
-    "description": "Thủ đô ngàn năm văn hiến với phố cổ, văn hóa lâu đời và ẩm thực truyền thống phong phú."
+    "coordinates": [
+      105.8542,
+      21.0285
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 8.9,
+      "food": 9.0,
+      "transport": 8.8,
+      "activities": 8.9
+    },
+    "activities": [
+      {
+        "id": "SRV_HAN_084",
+        "name": "Vincom Mega Mall Royal City",
+        "cost": 193000,
+        "category": "activities",
+        "duration_hrs": 1.5,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HAN_042",
+        "name": "Trà dimsum San Fu Lou",
+        "cost": 290000,
+        "category": "food",
+        "duration_hrs": 1.2,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HAN_048",
+        "name": "Jacksons Steakhouse",
+        "cost": 563000,
+        "category": "food",
+        "duration_hrs": 1.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HAN_063",
+        "name": "Chùa Trấn Quốc",
+        "cost": 86000,
+        "category": "activities",
+        "duration_hrs": 2.0,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HAN_070",
+        "name": "VinWonders Hà Nội Wave Park",
+        "cost": 339000,
+        "category": "activities",
+        "duration_hrs": 4.2,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HAN_071",
+        "name": "Công viên nước Hồ Tây",
+        "cost": 325000,
+        "category": "activities",
+        "duration_hrs": 4.0,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1543355890-20bc0a26fda1?auto=format&fit=crop&w=1200&q=85"
+      }
+    ],
+    "description": "Thủ đô ngàn năm văn hiến với phố cổ, ẩm thực truyền thống và di sản văn hóa sâu lắng.",
+    "minimum_two_day_cost_vnd": 2290000,
+    "travel_tips": [
+      {
+        "title": "Kinh nghiệm du lịch",
+        "content": "Dữ liệu trích xuất trực tiếp từ Database dataset 500 mục dịch vụ chuẩn của Hà Nội."
+      },
+      {
+        "title": "Thời điểm đẹp nhất",
+        "content": "Nên đặt phòng và dịch vụ trước từ 1 - 2 tuần để có mức giá ưu đãi nhất từ hệ thống."
+      }
+    ]
   },
   {
-    "id": "hue",
+    "id": "HUE",
     "code": "HUE",
-    "name": "Huế",
+    "name": "Huế - Cố Đô Di Sản Triều Nguyễn & Sông Hương",
     "region": "Miền Trung",
-    "category_type": "heritage",
-    "tags": ["heritage", "di_san", "history", "lich_su", "culture", "van_hoa", "river", "song_huong", "food", "am_thuc_co_do"],
-    "coordinates": [107.5847, 16.4637],
-    "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=80",
-    "description": "Cố đô tĩnh lặng với quần thể di tích triều Nguyễn, kinh thành cổ kính và dòng sông Hương thơ mộng."
+    "coordinates": [
+      107.5847,
+      16.4637
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 9.1,
+      "food": 9.0,
+      "transport": 8.8,
+      "activities": 8.8
+    },
+    "activities": [
+      {
+        "id": "SRV_HUE_152",
+        "name": "Bãi biển Thuận An",
+        "cost": 135000,
+        "category": "activities",
+        "duration_hrs": 2.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HUE_154",
+        "name": "Khu du lịch Suối Mơ Huế",
+        "cost": 592000,
+        "category": "activities",
+        "duration_hrs": 3.8,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HUE_117",
+        "name": "Chè Hẻm Hùng Vương",
+        "cost": 137000,
+        "category": "food",
+        "duration_hrs": 1.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HUE_118",
+        "name": "Hải sản Đầm Chuồn",
+        "cost": 556000,
+        "category": "food",
+        "duration_hrs": 1.5,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HUE_133",
+        "name": "Nhà hàng Chay Sốt Huế",
+        "cost": 141000,
+        "category": "food",
+        "duration_hrs": 1.2,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_HUE_153",
+        "name": "Vườn quốc gia Bạch Mã",
+        "cost": 122000,
+        "category": "activities",
+        "duration_hrs": 2.5,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85"
+      }
+    ],
+    "description": "Cố đô trầm mặc với quần thể lăng tước triều Nguyễn, kinh thành cổ kính và âm hưởng sông Hương.",
+    "minimum_two_day_cost_vnd": 1978000,
+    "travel_tips": [
+      {
+        "title": "Kinh nghiệm du lịch",
+        "content": "Dữ liệu trích xuất trực tiếp từ Database dataset 500 mục dịch vụ chuẩn của Huế."
+      },
+      {
+        "title": "Thời điểm đẹp nhất",
+        "content": "Nên đặt phòng và dịch vụ trước từ 1 - 2 tuần để có mức giá ưu đãi nhất từ hệ thống."
+      }
+    ]
   },
   {
-    "id": "da-nang",
+    "id": "DAD",
     "code": "DAD",
-    "name": "Đà Nẵng",
+    "name": "Đà Nẵng - Cầu Vàng Bà Nà & Linh Ứng Tự",
     "region": "Miền Trung",
-    "category_type": "beach",
-    "tags": ["beach", "bien", "city", "thanh_pho", "modern", "hien_dai", "resort", "nghi_duong", "entertainment", "giai_tri"],
-    "coordinates": [108.2022, 16.0544],
-    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80",
-    "description": "Thành phố biển năng động với bãi biển Mỹ Khê top thế giới, Cầu Rồng và Sun World Bà Nà Hills."
+    "coordinates": [
+      108.2022,
+      16.0544
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 8.8,
+      "food": 8.7,
+      "transport": 8.8,
+      "activities": 8.9
+    },
+    "activities": [
+      {
+        "id": "SRV_DAD_227",
+        "name": "Chùa Linh Ứng Bãi Bụt",
+        "cost": 82000,
+        "category": "activities",
+        "duration_hrs": 2.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DAD_236",
+        "name": "Suối Mơ Đà Nẵng",
+        "cost": 10000,
+        "category": "activities",
+        "duration_hrs": 1.8,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DAD_231",
+        "name": "Nhà nhà thờ Chính Tòa (Nhà thờ Con Gà)",
+        "cost": 59000,
+        "category": "activities",
+        "duration_hrs": 2.0,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DAD_249",
+        "name": "Chợ đêm Sơn Trà",
+        "cost": 32000,
+        "category": "activities",
+        "duration_hrs": 1.5,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DAD_250",
+        "name": "Vincom Plaza Đà Nẵng",
+        "cost": 108000,
+        "category": "activities",
+        "duration_hrs": 1.5,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DAD_219",
+        "name": "Chay Ans Vegetarian",
+        "cost": 63000,
+        "category": "food",
+        "duration_hrs": 1.0,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      }
+    ],
+    "description": "Thành phố biển hiện đại với Cầu Vàng Bà Nà Hills, bãi biển Mỹ Khê và ẩm thực phong phú.",
+    "minimum_two_day_cost_vnd": 2518000,
+    "travel_tips": [
+      {
+        "title": "Kinh nghiệm du lịch",
+        "content": "Dữ liệu trích xuất trực tiếp từ Database dataset 500 mục dịch vụ chuẩn của Đà Nẵng."
+      },
+      {
+        "title": "Thời điểm đẹp nhất",
+        "content": "Nên đặt phòng và dịch vụ trước từ 1 - 2 tuần để có mức giá ưu đãi nhất từ hệ thống."
+      }
+    ]
   },
   {
-    "id": "da-lat",
+    "id": "DLD",
     "code": "DLD",
-    "name": "Đà Lạt",
+    "name": "Đà Lạt - Thành Phố Ngàn Hoa & Sương Mù",
     "region": "Tây Nguyên",
-    "category_type": "mountain",
-    "tags": ["mountain", "nui_doi", "nature", "thien_nhien", "cool_climate", "khi_hau_mat_moe", "romantic", "tho_mong", "check_in", "cafe"],
-    "coordinates": [108.4419, 11.9404],
-    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80",
-    "description": "Thành phố ngàn hoa trên cao nguyên mộng mơ với khí hậu se lạnh, rừng thông và hàng trăm quán cà phê check-in."
+    "coordinates": [
+      108.4419,
+      11.9404
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 8.9,
+      "food": 9.0,
+      "transport": 8.8,
+      "activities": 8.9
+    },
+    "activities": [
+      {
+        "id": "SRV_DLD_321",
+        "name": "Khu du lịch Fresh Garden",
+        "cost": 786000,
+        "category": "activities",
+        "duration_hrs": 4.2,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DLD_328",
+        "name": "Đồi Cỏ Hồng",
+        "cost": 24000,
+        "category": "activities",
+        "duration_hrs": 1.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DLD_329",
+        "name": "Cầu Đất Tea Hill",
+        "cost": 8000,
+        "category": "activities",
+        "duration_hrs": 0.8,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DLD_285",
+        "name": "Hải sản Sông Hương Đà Lạt",
+        "cost": 469000,
+        "category": "food",
+        "duration_hrs": 1.5,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DLD_294",
+        "name": "King BBQ Đà Lạt",
+        "cost": 382000,
+        "category": "food",
+        "duration_hrs": 1.2,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_DLD_301",
+        "name": "Chay Từ Hạnh",
+        "cost": 174000,
+        "category": "food",
+        "duration_hrs": 1.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85"
+      }
+    ],
+    "description": "Thành phố ngàn hoa trên cao nguyên với khí hậu se lạnh, đồi chè Cầu Đất và hàng trăm quán cà phê check-in.",
+    "minimum_two_day_cost_vnd": 1559000,
+    "travel_tips": [
+      {
+        "title": "Kinh nghiệm du lịch",
+        "content": "Dữ liệu trích xuất trực tiếp từ Database dataset 500 mục dịch vụ chuẩn của Đà Lạt."
+      },
+      {
+        "title": "Thời điểm đẹp nhất",
+        "content": "Nên đặt phòng và dịch vụ trước từ 1 - 2 tuần để có mức giá ưu đãi nhất từ hệ thống."
+      }
+    ]
   },
   {
-    "id": "phu-quoc",
+    "id": "PQC",
     "code": "PQC",
-    "name": "Phú Quốc",
+    "name": "Phú Quốc - Thiên Đường Biển Ngọc",
     "region": "Miền Nam",
-    "category_type": "island",
-    "tags": ["island", "dao", "beach", "bien", "luxury", "sang_trong", "resort", "nghi_duong", "sunset", "hoang_hon", "theme_park"],
-    "coordinates": [103.963, 10.2899],
-    "hero_image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80",
-    "description": "Đảo ngọc thiên đường nghỉ dưỡng với bãi biển hoang sơ, đại dương ngọc bích, hoàng hôn rực rỡ và resort 5 sao."
+    "coordinates": [
+      103.963,
+      10.2899
+    ],
+    "hero_image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85",
+    "gallery_images": [
+      "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+    ],
+    "satisfaction_scores": {
+      "stay": 8.9,
+      "food": 8.9,
+      "transport": 8.8,
+      "activities": 9.0
+    },
+    "activities": [
+      {
+        "id": "SRV_PQC_395",
+        "name": "Di tích Lịch sử Nhà tù Phú Quốc",
+        "cost": 85000,
+        "category": "activities",
+        "duration_hrs": 2.0,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_PQC_361",
+        "name": "Gỏi cá trích Cây Bàng",
+        "cost": 110000,
+        "category": "food",
+        "duration_hrs": 0.8,
+        "score": 9.8,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_PQC_401",
+        "name": "Hòn Móng Tay",
+        "cost": 90000,
+        "category": "activities",
+        "duration_hrs": 2.2,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_PQC_404",
+        "name": "Vinpearl Safari Phú Quốc",
+        "cost": 857000,
+        "category": "activities",
+        "duration_hrs": 4.5,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_PQC_405",
+        "name": "Cáp treo Hòn Thơm Sun World",
+        "cost": 359000,
+        "category": "activities",
+        "duration_hrs": 4.0,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      },
+      {
+        "id": "SRV_PQC_408",
+        "name": "Grand World Phú Quốc (Thành phố không ngủ)",
+        "cost": 48000,
+        "category": "activities",
+        "duration_hrs": 0.8,
+        "score": 9.6,
+        "image": "https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85"
+      }
+    ],
+    "description": "Đảo ngọc thiên đường với bãi biển hoang sơ, hoàng hôn Bãi Trường và ẩm thực hải sản phong phú.",
+    "minimum_two_day_cost_vnd": 2550000,
+    "travel_tips": [
+      {
+        "title": "Kinh nghiệm du lịch",
+        "content": "Dữ liệu trích xuất trực tiếp từ Database dataset 500 mục dịch vụ chuẩn của Phú Quốc."
+      },
+      {
+        "title": "Thời điểm đẹp nhất",
+        "content": "Nên đặt phòng và dịch vụ trước từ 1 - 2 tuần để có mức giá ưu đãi nhất từ hệ thống."
+      }
+    ]
   }
 ]

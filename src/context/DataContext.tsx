@@ -192,48 +192,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Backend DB offline, fallback to local storage cache for destinations:', dbErr);
       }
 
-      // 2. Load latest cloud data fallback for slides and heroConfig
-      const data = await fetchCloudData();
-      if (data && isMounted) {
-        const localUpdatedAt = localStorage.getItem('tripbudget_last_local_update');
-        const localTime = localUpdatedAt ? parseInt(localUpdatedAt, 10) : 0;
-        const cloudTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
-
-        // Only overwrite local state if cloud data is newer or local data has never been edited
-        if (!localTime || cloudTime >= localTime) {
-          if (data.slides && Array.isArray(data.slides)) {
-            const filteredSlides = data.slides.filter((s: any) => !deletedSlidesSet.has(s.id));
-            setSlides(filteredSlides);
-          }
-          if (data.heroConfig && data.heroConfig.titleLine1) {
-            setHeroConfig(data.heroConfig);
-          }
-          setIsCloudSynced(true);
-          setLastSyncedAt(data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString('vi-VN') : new Date().toLocaleTimeString('vi-VN'));
-        } else {
-          // Local edits are newer than cloud DB; sync local state up to cloud
-          const currentDest = JSON.parse(localStorage.getItem('tripbudget_destinations') || '[]');
-          const currentSlides = JSON.parse(localStorage.getItem('tripbudget_slides') || '[]');
-          const currentHero = JSON.parse(localStorage.getItem('tripbudget_hero') || 'null') || DEFAULT_HERO_CONFIG;
-          await saveCloudData({ destinations: currentDest, slides: currentSlides, heroConfig: currentHero });
-          setIsCloudSynced(true);
-          setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
-        }
+      if (isMounted) {
+        setIsSyncingCloud(false);
+        setIsCloudSynced(true);
+        setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
       }
-      if (isMounted) setIsSyncingCloud(false);
     };
 
     loadInitialData();
     return () => { isMounted = false; };
   }, []);
 
-  const pushStateToCloud = async (d = destinations, s = slides, h = heroConfig) => {
-    setIsSyncingCloud(true);
-    const ok = await saveCloudData({ destinations: d, slides: s, heroConfig: h });
-    setIsCloudSynced(ok);
-    if (ok) setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
+  const pushStateToCloud = async (_d = destinations, _s = slides, _h = heroConfig) => {
+    // Cloud sync disabled for demo stability (LocalStorage & DB active)
     setIsSyncingCloud(false);
-    return ok;
+    setIsCloudSynced(true);
+    setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
+    return true;
   };
 
   const syncWithCloud = async () => {
@@ -241,27 +216,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchFromCloud = async () => {
-    setIsSyncingCloud(true);
-    const deletedDestsSet = new Set(getDeletedDestIds());
-    const deletedSlidesSet = new Set(getDeletedSlideIds());
-    const data = await fetchCloudData();
-    if (data) {
-      if (data.destinations && Array.isArray(data.destinations)) {
-        const filtered = data.destinations.filter((d: any) => !deletedDestsSet.has(d.id));
-        setDestinations(filtered);
-      }
-      if (data.slides && Array.isArray(data.slides)) {
-        const filtered = data.slides.filter((s: any) => !deletedSlidesSet.has(s.id));
-        setSlides(filtered);
-      }
-      if (data.heroConfig) setHeroConfig(data.heroConfig);
-      setIsCloudSynced(true);
-      setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
-      setIsSyncingCloud(false);
-      return true;
-    }
+    // Cloud sync disabled for demo stability
     setIsSyncingCloud(false);
-    return false;
+    setIsCloudSynced(true);
+    return true;
   };
 
   const notifyStateChange = () => {

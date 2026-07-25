@@ -15,20 +15,28 @@ def seed_database():
 
     try:
         # 1. Seed Destinations if empty
-        dest_path = Path(__file__).parent.parent / "src" / "data" / "destinationsData.json"
+        dest_path = Path(__file__).with_name("destinations.json")
         if not dest_path.exists():
-            dest_path = Path(__file__).with_name("destinations.json")
+            dest_path = Path(__file__).parent.parent / "src" / "data" / "destinationsData.json"
 
         if dest_path.exists():
-            dest_count = db.query(DestinationModel).count()
-            if dest_count == 0:
-                dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
-                new_dests = []
-                for d in dest_data:
+            dest_data = json.loads(dest_path.read_text(encoding="utf-8"))
+            existing = {d.id: d for d in db.query(DestinationModel).all()}
+            
+            # Clean up old legacy slug IDs if present (e.g. ha-noi, da-nang)
+            legacy_ids = [k for k in existing.keys() if k not in ["HAN", "HUE", "DAD", "DLD", "PQC"]]
+            if legacy_ids:
+                db.query(DestinationModel).filter(DestinationModel.id.in_(legacy_ids)).delete(synchronize_session=False)
+                db.commit()
+
+            new_dests = []
+            for d in dest_data:
+                dest_id = d["id"]
+                if dest_id not in existing or dest_id in legacy_ids:
                     new_dests.append(
                         DestinationModel(
-                            id=d["id"],
-                            code=d.get("code", d["id"].upper()),
+                            id=dest_id,
+                            code=d.get("code", dest_id),
                             name=d["name"],
                             region=d["region"],
                             category_type=d.get("category_type", "city"),
@@ -38,12 +46,12 @@ def seed_database():
                             description=d.get("description", ""),
                         )
                     )
-                if new_dests:
-                    db.add_all(new_dests)
-                    db.commit()
-                    print(f"[SUCCESS] {len(new_dests)} destinations seeded cleanly into Database.")
+            if new_dests:
+                db.add_all(new_dests)
+                db.commit()
+                print(f"[SUCCESS] {len(new_dests)} destinations synced cleanly into Database with Dataset IDs.")
             else:
-                print(f"[INFO] Destinations already exist in Database ({dest_count} items).")
+                print(f"[INFO] Destinations in sync with Database ({len(existing)} items).")
 
         # 2. Seed 500 Services in 1 Single Fast Bulk Insert
         services_path = Path(__file__).with_name("tripbudget_full_dataset_500.json")
