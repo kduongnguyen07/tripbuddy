@@ -57,26 +57,34 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
   return (
     <div className="space-y-8 font-sans">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-950/40 pb-4">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 ${isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'}`}>
         <div>
-          <h3 className="text-2xl font-extrabold text-white font-serif flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#d4af37]" />
+          <h3 className={`text-2xl font-extrabold font-serif flex items-center gap-2 ${isLight ? 'text-[#231F1D]' : 'text-white'}`}>
+            <Calendar className={`w-6 h-6 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} />
             Timeline Lịch Trình Chi Tiết ({plan.trip?.num_days || plan.daily_itinerary.length} Ngày)
           </h3>
-          <p className="text-xs text-slate-400 mt-1 font-sans">
-            Bấm vào bất kỳ địa điểm nào để xem <span className="text-[#d4af37] font-bold">hình ảnh minh họa & thông tin bổ sung bên trái</span>
+          <p className={`text-xs mt-1 font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            Bấm vào bất kỳ địa điểm nào để xem <span className={`font-bold ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>hình ảnh minh họa & thông tin bổ sung bên trái</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-300 font-bold bg-[#0C0805] p-3 rounded-2xl border border-amber-950/50">
-          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className={`flex items-center gap-2 text-xs font-bold p-3 rounded-2xl border ${
+          isLight
+            ? 'bg-white text-[#231F1D] border-[#E5DEC9]'
+            : 'bg-[#0C0805] text-slate-300 border-amber-950/50'
+        }`}>
+          <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
           <span>Đã kiểm tra không trùng lặp khung giờ</span>
         </div>
       </div>
 
       {/* Mandatory Disclaimer Note Banner */}
-      <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-3 shadow-xl">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+      <div className={`p-4 rounded-2xl border-2 text-xs font-bold flex items-center gap-3 shadow-md ${
+        isLight
+          ? 'bg-amber-500/10 border-amber-500/30 text-amber-900'
+          : 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+      }`}>
+        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
         <span>Lưu ý: Lịch trình này chưa bao gồm chi phí di chuyển và các chi phí phát sinh khác.</span>
       </div>
 
@@ -88,33 +96,35 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: idx * 0.05 }}
-            className={`rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6 transition-colors duration-500 ${
+            className={`rounded-3xl p-6 sm:p-8 border shadow-xl space-y-6 transition-colors duration-500 ${
               isLight
                 ? 'bg-white border-[#E5DEC9] text-[#231F1D]'
                 : 'bg-[#14100c] border-amber-950/60 text-white'
             }`}
           >
             {/* Day Header */}
-            <div className="flex items-center justify-between border-b border-amber-950/40 pb-4">
+            <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#d4af37] text-[#0C0805] font-black text-base flex items-center justify-center shadow-lg font-sans">
+                <div className={`w-10 h-10 rounded-2xl font-black text-base flex items-center justify-center shadow-md font-sans ${
+                  isLight ? 'bg-[#B8860B] text-white' : 'bg-[#d4af37] text-[#0C0805]'
+                }`}>
                   N{dayPlan.day}
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-lg font-serif">
+                  <h4 className={`font-extrabold text-lg font-serif ${isLight ? 'text-[#231F1D]' : 'text-white'}`}>
                     Ngày {dayPlan.day}: Khám Phá {plan.destination?.name?.split('-')[0].trim()}
                   </h4>
-                  <span className="text-xs text-slate-400 font-sans">
+                  <span className={`text-xs font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                     5 hoạt động & bữa ăn được lên lịch
                   </span>
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 block uppercase font-sans">
+                <span className={`text-[10px] block uppercase font-sans ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                   Tổng chi phí Ngày {dayPlan.day}
                 </span>
-                <span className="font-black text-[#d4af37] text-base font-serif">
+                <span className={`font-black text-base font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
                   {dayPlan.total_cost_vnd.toLocaleString('vi-VN')} đ
                 </span>
               </div>
@@ -126,7 +136,7 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                 const slotInfo = SLOT_LABELS[event.slot || 'morning'] || {
                   label: event.slot,
                   icon: Ticket,
-                  color: 'text-emerald-400',
+                  color: 'text-emerald-500',
                 };
                 const IconComponent = slotInfo.icon;
                 const selectionTarget: PlanSelection = {
@@ -150,7 +160,11 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                     key={`${event.id}_${event.slot}`}
                     className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group cursor-pointer ${
                       isSelected
-                        ? 'bg-[#1a140f] border-[#d4af37] ring-2 ring-[#d4af37]/60 shadow-xl'
+                        ? isLight
+                          ? 'bg-[#F5EFE6] border-[#B8860B] ring-2 ring-[#B8860B]/60 shadow-md'
+                          : 'bg-[#1a140f] border-[#d4af37] ring-2 ring-[#d4af37]/60 shadow-xl'
+                        : isLight
+                        ? 'bg-[#FAF7F2] border-[#E5DEC9] hover:border-[#B8860B]/60'
                         : 'bg-[#0C0805] border-amber-950/40 hover:border-[#d4af37]/60'
                     }`}
                   >
@@ -160,24 +174,26 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       className="flex items-start sm:items-center gap-3 flex-1"
                     >
                       <div className="w-20 shrink-0 text-left">
-                        <span className="text-xs font-bold text-[#d4af37] flex items-center gap-1 font-sans">
+                        <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
                           <Clock className="w-3.5 h-3.5" />
                           {event.start_time || '08:00'}
                         </span>
-                        <span className="text-[10px] text-slate-500 block">
+                        <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
                           đến {event.end_time || '09:00'}
                         </span>
                       </div>
 
                       {/* Item Image Illustration Thumbnail with Hover Eye Icon */}
-                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-amber-950/50 shrink-0 group-hover:scale-105 transition-transform duration-300">
+                      <div className={`relative w-16 h-16 rounded-2xl overflow-hidden border shrink-0 group-hover:scale-105 transition-transform duration-300 ${
+                        isLight ? 'border-[#E5DEC9]' : 'border-amber-950/50'
+                      }`}>
                         <img
                           src={event.image_url}
                           alt={event.name}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                          <Eye className="w-4 h-4 text-[#d4af37]" />
+                          <Eye className={`w-4 h-4 ${isLight ? 'text-amber-300' : 'text-[#d4af37]'}`} />
                         </div>
                       </div>
 
@@ -190,13 +206,15 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                             <IconComponent className="w-3.5 h-3.5" />
                             {slotInfo.label}
                           </span>
-                          <span className="text-slate-600">•</span>
-                          <span className="text-amber-400 font-bold text-xs flex items-center gap-0.5">
-                            <Star className="w-3 h-3 fill-amber-400" /> {event.rating}
+                          <span className={isLight ? 'text-slate-400' : 'text-slate-600'}>•</span>
+                          <span className="text-amber-500 font-bold text-xs flex items-center gap-0.5">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-500" /> {event.rating}
                           </span>
                         </div>
 
-                        <h5 className="font-bold text-sm text-white font-serif group-hover:text-[#d4af37] transition-colors">
+                        <h5 className={`font-bold text-sm font-serif transition-colors ${
+                          isLight ? 'text-[#231F1D] group-hover:text-[#B8860B]' : 'text-white group-hover:text-[#d4af37]'
+                        }`}>
                           {event.name}
                         </h5>
 
@@ -204,7 +222,9 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                           {event.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300"
+                              className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                isLight ? 'bg-amber-100/70 text-amber-900 border border-amber-200' : 'bg-slate-800 text-slate-300'
+                              }`}
                             >
                               #{tag}
                             </span>
@@ -214,12 +234,14 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                     </div>
 
                     {/* Price & Action Buttons */}
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 border-amber-950/40 pt-3 sm:pt-0">
+                    <div className={`flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 ${
+                      isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
+                    }`}>
                       <div className="text-left sm:text-right">
-                        <span className="text-[10px] text-slate-400 block uppercase">
+                        <span className={`text-[10px] block uppercase ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                           {event.price_unit === 'per_room' ? 'Chi phí / đêm' : 'Chi phí'}
                         </span>
-                        <span className="font-black text-sm text-[#d4af37] font-serif">
+                        <span className={`font-black text-sm font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
                           {(event.display_cost_vnd || event.total_cost_vnd) === 0
                             ? 'Miễn Phí'
                             : `${(event.display_cost_vnd || event.total_cost_vnd).toLocaleString('vi-VN')} đ`}
@@ -233,7 +255,11 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                             e.stopPropagation();
                             onOpenSwapModal(selectionTarget, event);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-[#d4af37] hover:text-[#0C0805] text-slate-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm border border-slate-700"
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm border ${
+                            isLight
+                              ? 'bg-white hover:bg-[#B8860B] hover:text-white text-[#231F1D] border-[#E5DEC9]'
+                              : 'bg-slate-800 hover:bg-[#d4af37] hover:text-[#0C0805] text-slate-300 border-slate-700'
+                          }`}
                           title="Đổi địa điểm khác"
                         >
                           <RefreshCw className="w-3.5 h-3.5" />

@@ -175,7 +175,11 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
 
           <button
             onClick={onBackToHome}
-            className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg"
+            className={`px-4 py-2 rounded-2xl font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-md border ${
+              isLight
+                ? 'bg-[#B8860B] hover:bg-[#a07509] text-white border-[#B8860B]'
+                : 'bg-[#d4af37] hover:bg-amber-400 text-[#0C0805] border-[#d4af37]'
+            }`}
           >
             <CheckCircle className="w-4 h-4" />
             <span className="hidden sm:inline">Hoàn Tất Chuyến Đi</span>

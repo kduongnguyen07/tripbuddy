@@ -93,11 +93,15 @@ export const SimilarDestinationsWidget: React.FC<SimilarDestinationsWidgetProps>
               </div>
 
               <div>
-                <h5 className="font-bold text-xs text-white font-serif flex items-center gap-1 group-hover:text-[#d4af37] transition-colors">
-                  <MapPin className="w-3 h-3 text-[#d4af37]" />
+                <h5 className={`font-bold text-xs font-serif flex items-center gap-1 transition-colors ${
+                  isLight
+                    ? 'text-[#231F1D] group-hover:text-[#B8860B]'
+                    : 'text-white group-hover:text-[#d4af37]'
+                }`}>
+                  <MapPin className={`w-3 h-3 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} />
                   {item.destination.name.split('-')[0].trim()}
                 </h5>
-                <span className="text-[10px] text-slate-400 block mt-0.5">
+                <span className={`text-[10px] block mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                   {item.destination.region}
                 </span>
               </div>
@@ -106,7 +110,11 @@ export const SimilarDestinationsWidget: React.FC<SimilarDestinationsWidgetProps>
                 {item.matching_tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-1.5 py-0.5 rounded-md bg-amber-950/40 text-[9px] text-[#d4af37] border border-[#d4af37]/20 flex items-center gap-0.5"
+                    className={`px-1.5 py-0.5 rounded-md text-[9px] flex items-center gap-0.5 border ${
+                      isLight
+                        ? 'bg-amber-100/70 text-amber-900 border-amber-300'
+                        : 'bg-amber-950/40 text-[#d4af37] border-[#d4af37]/20'
+                    }`}
                   >
                     <Tag className="w-2.5 h-2.5" /> #{tag}
                   </span>
@@ -114,7 +122,9 @@ export const SimilarDestinationsWidget: React.FC<SimilarDestinationsWidgetProps>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-amber-950/30 flex items-center justify-between text-[11px] font-bold text-[#d4af37]">
+            <div className={`pt-2 border-t flex items-center justify-between text-[11px] font-bold ${
+              isLight ? 'border-[#E5DEC9] text-[#B8860B]' : 'border-amber-950/30 text-[#d4af37]'
+            }`}>
               <span>Khám phá lịch trình</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>

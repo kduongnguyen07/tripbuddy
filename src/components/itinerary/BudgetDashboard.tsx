@@ -42,41 +42,57 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ plan }) => {
       {/* Main Numbers Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Total Budget */}
-        <div className="bg-[#0C0805] p-4 rounded-2xl border border-amber-950/40 space-y-1">
-          <span className="text-[11px] text-slate-400 font-bold block flex items-center gap-1">
-            <Wallet className="w-3.5 h-3.5 text-[#d4af37]" /> Tổng Ngân Sách
+        <div className={`p-4 rounded-2xl border space-y-1 ${
+          isLight
+            ? 'bg-[#FAF7F2] border-[#E5DEC9]'
+            : 'bg-[#0C0805] border-amber-950/40'
+        }`}>
+          <span className={`text-[11px] font-bold block flex items-center gap-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            <Wallet className={`w-3.5 h-3.5 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} /> Tổng Ngân Sách
           </span>
-          <span className="text-lg font-black text-[#d4af37] block font-serif">
+          <span className={`text-lg font-black block font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
             {budget.total_vnd.toLocaleString('vi-VN')} đ
           </span>
         </div>
 
         {/* Allocated Amount */}
-        <div className="bg-[#0C0805] p-4 rounded-2xl border border-amber-950/40 space-y-1">
-          <span className="text-[11px] text-slate-400 font-bold block flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Đã Phân Bổ
+        <div className={`p-4 rounded-2xl border space-y-1 ${
+          isLight
+            ? 'bg-[#FAF7F2] border-[#E5DEC9]'
+            : 'bg-[#0C0805] border-amber-950/40'
+        }`}>
+          <span className={`text-[11px] font-bold block flex items-center gap-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Đã Phân Bổ
           </span>
-          <span className="text-lg font-black text-emerald-400 block font-serif">
+          <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 block font-serif">
             {budget.allocated_vnd.toLocaleString('vi-VN')} đ
           </span>
         </div>
 
         {/* Remaining Amount */}
-        <div className="bg-[#0C0805] p-4 rounded-2xl border border-amber-950/40 space-y-1">
-          <span className="text-[11px] text-slate-400 font-bold block flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-sky-400" /> Ngân Sách Dư
+        <div className={`p-4 rounded-2xl border space-y-1 ${
+          isLight
+            ? 'bg-[#FAF7F2] border-[#E5DEC9]'
+            : 'bg-[#0C0805] border-amber-950/40'
+        }`}>
+          <span className={`text-[11px] font-bold block flex items-center gap-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            <TrendingUp className="w-3.5 h-3.5 text-sky-500" /> Ngân Sách Dư
           </span>
-          <span className="text-lg font-black text-sky-400 block font-serif">
+          <span className="text-lg font-black text-sky-600 dark:text-sky-400 block font-serif">
             {budget.remaining_vnd.toLocaleString('vi-VN')} đ
           </span>
         </div>
 
         {/* Per Person */}
-        <div className="bg-[#0C0805] p-4 rounded-2xl border border-amber-950/40 space-y-1">
-          <span className="text-[11px] text-slate-400 font-bold block flex items-center gap-1">
-            <Users className="w-3.5 h-3.5 text-purple-400" /> Bình Quân / Người
+        <div className={`p-4 rounded-2xl border space-y-1 ${
+          isLight
+            ? 'bg-[#FAF7F2] border-[#E5DEC9]'
+            : 'bg-[#0C0805] border-amber-950/40'
+        }`}>
+          <span className={`text-[11px] font-bold block flex items-center gap-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            <Users className="w-3.5 h-3.5 text-purple-500" /> Bình Quân / Người
           </span>
-          <span className="text-lg font-black text-purple-400 block font-serif">
+          <span className="text-lg font-black text-purple-600 dark:text-purple-400 block font-serif">
             {budget.per_person_vnd.toLocaleString('vi-VN')} đ
           </span>
         </div>
