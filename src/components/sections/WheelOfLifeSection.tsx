@@ -11,6 +11,12 @@ export const WheelOfLifeSection: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [direction, setDirection] = useState<number>(1);
 
+  React.useEffect(() => {
+    if (currentIndex >= slides.length && slides.length > 0) {
+      setCurrentIndex(slides.length - 1);
+    }
+  }, [slides.length, currentIndex]);
+
   const currentSlide = slides[currentIndex] || slides[0] || {
     id: 'default',
     category: 'TRẢI NGHIỆM',
@@ -24,11 +30,13 @@ export const WheelOfLifeSection: React.FC = () => {
   };
 
   const handleNext = () => {
+    if (slides.length === 0) return;
     setDirection(1);
     setCurrentIndex((prev) => (prev + 1) % slides.length);
   };
 
   const handlePrev = () => {
+    if (slides.length === 0) return;
     setDirection(-1);
     setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
   };

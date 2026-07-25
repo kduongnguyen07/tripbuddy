@@ -42,6 +42,20 @@ function MainContent() {
     };
   }, []);
 
+  useEffect(() => {
+    if (destinations.length > 0) {
+      if (!selectedDestination || !destinations.some((d) => d.id === selectedDestination.id)) {
+        setSelectedDestination(destinations[0]);
+      }
+      if (detailDestination && !destinations.some((d) => d.id === detailDestination.id)) {
+        setDetailDestination(null);
+      }
+    } else {
+      setSelectedDestination(null);
+      setDetailDestination(null);
+    }
+  }, [destinations]);
+
   // Sync route with URL bar & popstate listener
   useEffect(() => {
     const checkRoute = () => {

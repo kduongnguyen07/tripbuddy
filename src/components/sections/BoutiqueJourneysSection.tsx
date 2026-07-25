@@ -60,9 +60,14 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
       </motion.div>
 
       {/* Grid of Boutique Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {destinations.map((dest, idx) => {
-          const rating = ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1);
+      {destinations.length === 0 ? (
+        <div className={`text-center py-16 text-sm rounded-2xl border ${isLight ? 'bg-white border-[#E5DEC9] text-[#665E55]' : 'bg-[#14100c] border-amber-950/40 text-slate-400'}`}>
+          Chưa có điểm đến nào. Hãy thêm điểm đến mới từ Trang Quản Trị Admin.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {destinations.map((dest, idx) => {
+            const rating = ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1);
 
           return (
             <motion.div
@@ -181,6 +186,7 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
           );
         })}
       </div>
+      )}
 
     </motion.section>
   );

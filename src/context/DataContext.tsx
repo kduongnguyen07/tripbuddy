@@ -61,12 +61,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [theme]);
 
+  const markLocalUpdate = () => {
+    try {
+      localStorage.setItem('tripbudget_last_local_update', Date.now().toString());
+    } catch {}
+  };
+
   const [destinations, setDestinations] = useState<Destination[]>(() => {
     try {
       const saved = localStorage.getItem('tripbudget_destinations');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hero_image && parsed[0].satisfaction_scores) {
+        if (Array.isArray(parsed)) {
           return parsed as Destination[];
         }
       }
@@ -79,9 +85,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [slides, setSlides] = useState<JourneySlide[]>(() => {
     try {
       const saved = localStorage.getItem('tripbudget_slides');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+        if (Array.isArray(parsed)) {
           return parsed as JourneySlide[];
         }
       }
@@ -94,7 +100,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [heroConfig, setHeroConfig] = useState<HeroConfig>(() => {
     try {
       const saved = localStorage.getItem('tripbudget_hero');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.titleLine1) {
           return parsed as HeroConfig;
@@ -124,24 +130,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
-  // Load latest Cloud DB data on application mount
+  // Load latest Cloud DB data on application mount safely
   useEffect(() => {
     let isMounted = true;
     const loadCloud = async () => {
       setIsSyncingCloud(true);
       const data = await fetchCloudData();
       if (data && isMounted) {
-        if (data.destinations && Array.isArray(data.destinations) && data.destinations.length > 0 && data.destinations[0].hero_image && data.destinations[0].satisfaction_scores) {
-          setDestinations(data.destinations);
+        const localUpdatedAt = localStorage.getItem('tripbudget_last_local_update');
+        const localTime = localUpdatedAt ? parseInt(localUpdatedAt, 10) : 0;
+        const cloudTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+
+        // Only overwrite local state if cloud data is newer or local data has never been edited
+        if (!localTime || cloudTime >= localTime) {
+          if (data.destinations && Array.isArray(data.destinations)) {
+            setDestinations(data.destinations);
+          }
+          if (data.slides && Array.isArray(data.slides)) {
+            setSlides(data.slides);
+          }
+          if (data.heroConfig && data.heroConfig.titleLine1) {
+            setHeroConfig(data.heroConfig);
+          }
+          setIsCloudSynced(true);
+          setLastSyncedAt(data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString('vi-VN') : new Date().toLocaleTimeString('vi-VN'));
+        } else {
+          // Local edits are newer than cloud DB; sync local state up to cloud
+          const currentDest = JSON.parse(localStorage.getItem('tripbudget_destinations') || '[]');
+          const currentSlides = JSON.parse(localStorage.getItem('tripbudget_slides') || '[]');
+          const currentHero = JSON.parse(localStorage.getItem('tripbudget_hero') || 'null') || DEFAULT_HERO_CONFIG;
+          await saveCloudData({ destinations: currentDest, slides: currentSlides, heroConfig: currentHero });
+          setIsCloudSynced(true);
+          setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
         }
-        if (data.slides && Array.isArray(data.slides) && data.slides.length > 0 && data.slides[0].title) {
-          setSlides(data.slides);
-        }
-        if (data.heroConfig && data.heroConfig.titleLine1) {
-          setHeroConfig(data.heroConfig);
-        }
-        setIsCloudSynced(true);
-        setLastSyncedAt(data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString('vi-VN') : new Date().toLocaleTimeString('vi-VN'));
       }
       if (isMounted) setIsSyncingCloud(false);
     };
@@ -167,8 +188,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsSyncingCloud(true);
     const data = await fetchCloudData();
     if (data) {
-      if (data.destinations) setDestinations(data.destinations);
-      if (data.slides) setSlides(data.slides);
+      if (data.destinations && Array.isArray(data.destinations)) setDestinations(data.destinations);
+      if (data.slides && Array.isArray(data.slides)) setSlides(data.slides);
       if (data.heroConfig) setHeroConfig(data.heroConfig);
       setIsCloudSynced(true);
       setLastSyncedAt(new Date().toLocaleTimeString('vi-VN'));
@@ -190,6 +211,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addDestination = (dest: Destination) => {
     const updated = [dest, ...destinations];
     setDestinations(updated);
+    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
@@ -203,6 +226,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateDestination = (dest: Destination) => {
     const updated = destinations.map((d) => (d.id === dest.id ? dest : d));
     setDestinations(updated);
+    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
@@ -216,6 +241,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteDestination = (id: string) => {
     const updated = destinations.filter((d) => d.id !== id);
     setDestinations(updated);
+    localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(updated, slides, heroConfig);
     notifyStateChange();
 
@@ -228,6 +255,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addSlide = (slide: JourneySlide) => {
     const updated = [...slides, slide];
     setSlides(updated);
+    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(destinations, updated, heroConfig);
     notifyStateChange();
   };
@@ -235,6 +264,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateSlide = (slide: JourneySlide) => {
     const updated = slides.map((s) => (s.id === slide.id ? slide : s));
     setSlides(updated);
+    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(destinations, updated, heroConfig);
     notifyStateChange();
   };
@@ -242,6 +273,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteSlide = (id: string) => {
     const updated = slides.filter((s) => s.id !== id);
     setSlides(updated);
+    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+    markLocalUpdate();
     pushStateToCloud(destinations, updated, heroConfig);
     notifyStateChange();
   };
@@ -249,6 +282,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Hero Actions
   const updateHeroConfig = (config: HeroConfig) => {
     setHeroConfig(config);
+    localStorage.setItem('tripbudget_hero', JSON.stringify(config));
+    markLocalUpdate();
     pushStateToCloud(destinations, slides, config);
     notifyStateChange();
   };
@@ -270,13 +305,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const parsed = JSON.parse(jsonString);
       if (parsed.destinations && Array.isArray(parsed.destinations)) {
         setDestinations(parsed.destinations);
+        localStorage.setItem('tripbudget_destinations', JSON.stringify(parsed.destinations));
       }
       if (parsed.slides && Array.isArray(parsed.slides)) {
         setSlides(parsed.slides);
+        localStorage.setItem('tripbudget_slides', JSON.stringify(parsed.slides));
       }
       if (parsed.heroConfig) {
         setHeroConfig(parsed.heroConfig);
+        localStorage.setItem('tripbudget_hero', JSON.stringify(parsed.heroConfig));
       }
+      markLocalUpdate();
       notifyStateChange();
       return true;
     } catch (err) {
@@ -292,6 +331,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('tripbudget_destinations');
     localStorage.removeItem('tripbudget_slides');
     localStorage.removeItem('tripbudget_hero');
+    localStorage.removeItem('tripbudget_last_local_update');
     localStorage.removeItem('admin_tripbudget_dataset_500');
     notifyStateChange();
   };
