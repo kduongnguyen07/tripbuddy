@@ -79,6 +79,30 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
             activity_indexes[raw_destination_id] += 1
             price_unit, capacity, duration_hours, time_window = "per_person", 1, max(0.5, float(record.get("duration_mins", 60)) / 60), ACTIVITY_SLOTS[position % len(ACTIVITY_SLOTS)]
 
+        raw_tags = set(record.get("tags", []))
+        if subtype:
+            raw_tags.add(subtype)
+            if subtype == "hotel":
+                raw_tags.update(["khach_san", "hotel", "casual"])
+            elif subtype == "resort":
+                raw_tags.update(["resort", "luxury", "nghi_duong"])
+            elif subtype == "homestay":
+                raw_tags.update(["homestay", "check_in"])
+            elif subtype == "villa":
+                raw_tags.update(["villa", "scenic_view", "sang_trong"])
+            elif subtype == "hostel":
+                raw_tags.update(["hostel", "budget", "giare"])
+
+        # Unsplash fallback photos by category
+        img = record.get("image_url") or ""
+        if not img or "tripbudget.vn" in img:
+            if category == "stay":
+                img = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
+            elif category == "food":
+                img = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80"
+            else:
+                img = "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80"
+
         services.append({
             "id": record["id"],
             "destination_id": dest_map[raw_destination_id]["id"],
@@ -91,8 +115,8 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
             "duration_hours": duration_hours,
             "time_window": time_window,
             "rating": float(record["rating"]),
-            "tags": list(record.get("tags", [])),
-            "image_url": record.get("image_url") or "",
+            "tags": sorted(list(raw_tags)),
+            "image_url": img,
             "affiliate_url": record.get("booking_url") or None,
             "source": "mock-generated",
             "updated_at": updated_at,
