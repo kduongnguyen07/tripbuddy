@@ -16,7 +16,6 @@ import {
   ArrowRight,
   RotateCcw,
   SkipForward,
-  Info,
   Tag,
   Star,
   Plus,
@@ -99,16 +98,16 @@ const DESTINATION_META: Record<
     tags: ['Núi Đồi', 'Thiên Nhiên', 'Khí Hậu Mát Mẻ', 'Mộng Mơ', 'Check-in'],
     highlights: ['Hồ Tuyền Lâm & Hồ Xuân Hương', 'Thác Datanla & Đỉnh Langbiang', 'Quảng trường Lâm Viên', 'Cà phê view đồi thông'],
     minBudgetPerDay: '850.000 đ/người',
-    rating: 4.8,
+    rating: 4.9,
   },
   'phu-quoc': {
     name: 'Phú Quốc',
     region: 'Miền Nam',
-    typeLabel: 'Đảo Ngọc Đỉnh Cao',
+    typeLabel: 'Đảo Ngọc Thiên Đường',
     heroImage: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80',
-    description: 'Thiên đường nghỉ dưỡng biển đảo với cát trắng hoang sơ, biển ngọc bích, hoàng hôn lãng mạn và resort 5 sao.',
-    tags: ['Đảo', 'Biển', 'Sang Trọng', 'Resort 5 Sao', 'Hoàng Hôn'],
-    highlights: ['Bãi Sao & Bãi Khem', 'VinWonders & Vinpearl Safari', 'Sunset Town & Cầu Hôn', 'Bún quậy & Hải sản tươi'],
+    description: 'Đảo ngọc nghỉ dưỡng hàng đầu Châu Á với đại dương xanh ngọc bích, bãi biển Bãi Sao thơ mộng và hoàng hôn tuyệt đẹp.',
+    tags: ['Đảo', 'Biển', 'Sang Trọng', 'Nghỉ Dưỡng', 'Hoàng Hôn'],
+    highlights: ['Bãi Sao & Bãi Khem', 'Cáp treo Hòn Thơm vượt biển', 'Grand World & VinWonders', 'Hoàng hôn Sunset Sanato'],
     minBudgetPerDay: '1.200.000 đ/người',
     rating: 4.9,
   },
@@ -123,30 +122,27 @@ const DESTINATIONS: { id: DestinationId; name: string; region: string }[] = [
 ];
 
 const PRIORITY_OPTIONS: { value: PriorityLevel; label: string }[] = [
-  { value: 'none', label: 'Không ưu tiên' },
   { value: 'normal', label: 'Bình thường' },
   { value: 'important', label: 'Quan trọng' },
   { value: 'very_important', label: 'Rất quan trọng' },
 ];
 
-// Section 2: Preferences Options
 const LODGING_STYLES: { id: LodgingStyle; label: string; icon: string }[] = [
-  { id: 'casual', label: 'Khách Sạn', icon: '🏨' },
-  { id: 'check_in', label: 'Homestay', icon: '🏡' },
-  { id: 'luxury', label: 'Resort Cao Cấp', icon: '🏖️' },
-  { id: 'scenic_view', label: 'Villa View Đẹp', icon: '🏰' },
-  { id: 'nature', label: 'Gần Thiên Nhiên', icon: '🌲' },
-  { id: 'street_food', label: 'Gần Phố Cổ / Trung Tâm', icon: '🏮' },
+  { id: 'hotel', label: 'Khách Sạn', icon: '🏨' },
+  { id: 'resort', label: 'Resort Nghỉ Dưỡng', icon: '🏝️' },
+  { id: 'homestay', label: 'Homestay Thơ Mộng', icon: '🏡' },
+  { id: 'villa', label: 'Villa Riêng Tư', icon: '🏰' },
+  { id: 'hostel', label: 'Hostel Tiết Kiệm', icon: '🛏️' },
+  { id: 'casual', label: 'Bình Dân Phổ Thông', icon: '🏠' },
 ];
 
 const FOOD_STYLES: { id: FoodStyle; label: string; icon: string }[] = [
   { id: 'seafood', label: 'Hải Sản Tươi Sống', icon: '🦀' },
   { id: 'local_specialty', label: 'Đặc Sản Địa Phương', icon: '🍲' },
-  { id: 'asian_food', label: 'Buffet / Món Á', icon: '🍣' },
-  { id: 'casual', label: 'Quán Ăn Bình Dân', icon: '🥢' },
+  { id: 'buffet', label: 'Buffet Đa Dạng', icon: '🍱' },
+  { id: 'street_food', label: 'Quán Ăn Bình Dân', icon: '🍜' },
   { id: 'fine_dining', label: 'Nhà Hàng Cao Cấp', icon: '🍷' },
-  { id: 'vegetarian', label: 'Món Chay / Healthy', icon: '🥗' },
-  { id: 'western_food', label: 'Món Âu', icon: 'Steak' },
+  { id: 'cafe', label: 'Cà Phê & Điểm Nhẹ', icon: '☕' },
   { id: 'fast_food', label: 'Thức Ăn Nhanh', icon: '🍔' },
 ];
 
@@ -171,7 +167,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   // Step 1: Core Config, Step 2: Preferences
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Core Inputs (Numeric Input Boxes instead of Range Sliders)
+  // Core Inputs
   const [destinationId, setDestinationId] = useState<DestinationId>('ha-noi');
   const [suggestDestination, setSuggestDestination] = useState<boolean>(false);
   const [totalBudget, setTotalBudget] = useState<number>(10000000); // 10 triệu VNĐ
@@ -188,12 +184,12 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
   // Preferences
   const [preferences, setPreferences] = useState<Preferences>({
-    lodging_styles: ['casual', 'scenic_view'],
+    lodging_styles: ['hotel', 'resort'],
     food_styles: ['local_specialty', 'seafood'],
     activity_styles: ['culture', 'nature'],
   });
 
-  // Recommended Destinations (when suggest toggle is ON)
+  // Recommended Destinations
   const [recommendations, setRecommendations] = useState<DestinationRecommendation[]>([]);
   const [recommendLoading, setRecommendLoading] = useState<boolean>(false);
 
@@ -228,10 +224,9 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     };
   }, [suggestDestination, totalBudget, people, numDays, priorities]);
 
-  // Active Destination Metadata for Preview Panel
   const currentMeta = DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
 
-  // Minimum required budget check for validation
+  // Minimum required budget check
   const minRequiredCost = (numDays > 1 ? 800000 : 0) + 500000 * numDays * people;
   const isBudgetTooLow = totalBudget > 0 && totalBudget < minRequiredCost;
 
@@ -243,7 +238,6 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   };
 
   const handleSubmit = () => {
-    // Data Validation before submitting
     if (!totalBudget || totalBudget <= 0) {
       setValidationError('Vui lòng nhập tổng ngân sách hợp lệ (lớn hơn 0 VNĐ).');
       return;
@@ -316,8 +310,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   ? 'bg-[#B8860B] text-white shadow-md'
                   : 'bg-[#d4af37] text-[#0C0805] shadow-md font-extrabold'
                 : isLight
-                ? 'bg-[#FAF7F2] text-[#4A4238]'
-                : 'bg-[#0C0805] text-slate-400'
+                ? 'bg-white text-[#4A4238] border border-[#E5DEC9]'
+                : 'bg-[#0C0805] text-slate-400 border border-amber-950/40'
             }`}
           >
             1. Thông Tin Cơ Bản
@@ -331,8 +325,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   ? 'bg-[#B8860B] text-white shadow-md'
                   : 'bg-[#d4af37] text-[#0C0805] shadow-md font-extrabold'
                 : isLight
-                ? 'bg-[#FAF7F2] text-[#4A4238]'
-                : 'bg-[#0C0805] text-slate-400'
+                ? 'bg-white text-[#4A4238] border border-[#E5DEC9]'
+                : 'bg-[#0C0805] text-slate-400 border border-amber-950/40'
             }`}
           >
             2. Lựa Chọn Sở Thích
@@ -370,7 +364,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   ? 'bg-amber-50 border-[#B8860B]/50'
                   : 'bg-amber-950/30 border-[#d4af37]/60'
                 : isLight
-                ? 'bg-[#FAF7F2] border-[#E5DEC9]'
+                ? 'bg-white border-[#E5DEC9]'
                 : 'bg-[#0C0805] border-amber-950/40'
             }`}
           >
@@ -380,14 +374,18 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   suggestDestination
                     ? 'bg-[#d4af37] text-[#0C0805] shadow-lg'
                     : isLight
-                    ? 'bg-slate-200 text-slate-700'
+                    ? 'bg-[#FAF7F2] text-[#B8860B]'
                     : 'bg-slate-800 text-slate-300'
                 }`}
               >
                 <Compass className="w-6 h-6" />
               </div>
               <div>
-                <span className="font-bold text-sm block">
+                <span
+                  className={`font-bold text-sm block ${
+                    isLight ? 'text-[#231F1D]' : 'text-white'
+                  }`}
+                >
                   Chế Độ Gợi Ý Điểm Đến Phù Hợp
                 </span>
                 <span
@@ -434,7 +432,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                           ? 'bg-[#B8860B] text-white border-[#B8860B] shadow-xl scale-105 font-bold'
                           : 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-xl scale-105 font-black'
                         : isLight
-                        ? 'bg-[#FAF7F2] hover:bg-[#F4F0E8] text-[#231F1D] border-[#E5DEC9]'
+                        ? 'bg-white hover:bg-[#FAF7F2] text-[#231F1D] border-[#E5DEC9]'
                         : 'bg-[#0C0805] hover:bg-slate-900 text-slate-300 border-amber-950/40'
                     }`}
                   >
@@ -454,7 +452,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               </label>
 
               {recommendLoading ? (
-                <div className="p-6 text-center text-xs text-slate-400 bg-[#0C0805] rounded-2xl border border-amber-950/40">
+                <div
+                  className={`p-6 text-center text-xs rounded-2xl border ${
+                    isLight ? 'bg-white text-[#665E55] border-[#E5DEC9]' : 'bg-[#0C0805] text-slate-400 border-amber-950/40'
+                  }`}
+                >
                   <div className="animate-spin w-6 h-6 border-2 border-[#d4af37] border-t-transparent rounded-full mx-auto mb-2"></div>
                   Đang tìm kiếm các điểm đến tốt nhất...
                 </div>
@@ -468,18 +470,22 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                       className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                         destinationId === rec.destination.id
                           ? isLight
-                            ? 'bg-[#FAF7F2] border-[#B8860B] ring-2 ring-[#B8860B]'
+                            ? 'bg-amber-50 border-[#B8860B] ring-2 ring-[#B8860B]'
                             : 'bg-[#1a140f] border-[#d4af37] ring-2 ring-[#d4af37]'
                           : isLight
-                          ? 'bg-white border-[#E5DEC9]'
-                          : 'bg-[#0C0805] border-amber-950/40 hover:border-amber-700'
+                          ? 'bg-white border-[#E5DEC9] text-[#231F1D]'
+                          : 'bg-[#0C0805] border-amber-950/40 hover:border-amber-700 text-white'
                       }`}
                     >
                       <div>
                         <span className="font-extrabold text-sm block font-serif">
                           {rec.destination.name} ({rec.destination.region})
                         </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                        <span
+                          className={`text-[11px] block mt-0.5 ${
+                            isLight ? 'text-[#665E55]' : 'text-slate-400'
+                          }`}
+                        >
                           Ước tính tối thiểu: {rec.estimated_minimum_cost_vnd.toLocaleString('vi-VN')} đ
                         </span>
                       </div>
@@ -503,12 +509,20 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
-              className="p-6 rounded-3xl bg-[#0C0805] border border-amber-950/60 shadow-2xl flex flex-col md:flex-row gap-6 items-start"
+              className={`p-6 rounded-3xl border shadow-2xl flex flex-col md:flex-row gap-6 items-start ${
+                isLight
+                  ? 'bg-white border-[#E5DEC9] text-[#231F1D]'
+                  : 'bg-[#0C0805] border-amber-950/60 text-white'
+              }`}
             >
-              <div className="w-full md:w-56 h-40 rounded-2xl overflow-hidden relative shrink-0 border border-amber-950/50">
+              <div className="w-full md:w-56 h-40 rounded-2xl overflow-hidden relative shrink-0 border border-amber-950/50 bg-slate-800">
                 <img
                   src={currentMeta.heroImage}
                   alt={currentMeta.name}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=800&q=80';
+                  }}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -520,7 +534,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               <div className="flex-1 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <h4 className="text-xl font-extrabold text-white font-serif">
+                    <h4
+                      className={`text-xl font-extrabold font-serif ${
+                        isLight ? 'text-[#231F1D]' : 'text-white'
+                      }`}
+                    >
                       {currentMeta.name}
                     </h4>
                     <span className="px-2.5 py-0.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] text-[11px] font-bold">
@@ -528,24 +546,40 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     </span>
                   </div>
 
-                  <span className="text-xs font-bold text-slate-400">
-                    Ước tính: <span className="text-emerald-400 font-black">{currentMeta.minBudgetPerDay}</span>
+                  <span
+                    className={`text-xs font-bold ${
+                      isLight ? 'text-[#665E55]' : 'text-slate-400'
+                    }`}
+                  >
+                    Ước tính: <span className="text-emerald-500 font-black">{currentMeta.minBudgetPerDay}</span>
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                <p
+                  className={`text-xs font-sans leading-relaxed ${
+                    isLight ? 'text-[#4A4238]' : 'text-slate-300'
+                  }`}
+                >
                   {currentMeta.description}
                 </p>
 
                 <div className="space-y-2 pt-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                  <span
+                    className={`text-[11px] font-bold uppercase tracking-wider block flex items-center gap-1 ${
+                      isLight ? 'text-[#8A8075]' : 'text-slate-400'
+                    }`}
+                  >
                     <Tag className="w-3 h-3 text-[#d4af37]" /> Thẻ Phân Loại Trải Nghiệm:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {currentMeta.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-2.5 py-1 rounded-xl bg-[#14100c] border border-amber-950/60 text-xs font-bold text-slate-300"
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                          isLight
+                            ? 'bg-[#FAF7F2] border border-[#E5DEC9] text-[#231F1D]'
+                            : 'bg-[#14100c] border border-amber-950/60 text-slate-300'
+                        }`}
                       >
                         #{tag}
                       </span>
@@ -553,7 +587,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-amber-950/40 text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+                <div
+                  className={`pt-2 border-t text-xs flex flex-wrap gap-x-4 gap-y-1 ${
+                    isLight ? 'border-[#E5DEC9] text-[#665E55]' : 'border-amber-950/40 text-slate-400'
+                  }`}
+                >
                   {currentMeta.highlights.map((item) => (
                     <span key={item} className="flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" /> {item}
@@ -564,12 +602,12 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
             </motion.div>
           </AnimatePresence>
 
-          {/* 1.1 BIỂU MẪU THÔNG TIN CƠ BẢN (NUMERIC INPUT FIELDS - KHÔNG DÙNG SLIDER KÉO THẢ) */}
+          {/* 1.1 BIỂU MẪU THÔNG TIN CƠ BẢN (NUMERIC INPUT FIELDS) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Total Budget Numeric Input */}
             <div
               className={`p-5 rounded-3xl border space-y-3 ${
-                isLight ? 'bg-[#FAF7F2] border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
+                isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
               }`}
             >
               <label className="text-xs font-extrabold flex items-center gap-1.5 text-[#d4af37] uppercase tracking-wider">
@@ -585,7 +623,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   onChange={(e) => setTotalBudget(Math.max(0, Number(e.target.value)))}
                   className={`w-full px-4 py-3 rounded-2xl border text-sm font-extrabold font-serif focus:outline-none focus:ring-2 transition-all ${
                     isLight
-                      ? 'bg-white border-[#E5DEC9] text-[#231F1D] focus:ring-[#B8860B]'
+                      ? 'bg-[#FAF7F2] border-[#E5DEC9] text-[#231F1D] focus:ring-[#B8860B]'
                       : 'bg-[#14100c] border-amber-950/60 text-white focus:ring-[#d4af37]'
                   }`}
                   placeholder="Nhập tổng ngân sách chuyến đi..."
@@ -594,7 +632,9 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
               {/* Formatted Currency Display Helper */}
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400 text-[11px]">Định dạng:</span>
+                <span className={`text-[11px] ${isLight ? 'text-[#665E55]' : 'text-slate-400'}`}>
+                  Định dạng:
+                </span>
                 <span className="font-black text-sm text-[#d4af37]">
                   {totalBudget > 0 ? `${totalBudget.toLocaleString('vi-VN')} VNĐ` : '0 VNĐ'}
                 </span>
@@ -610,6 +650,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
                       totalBudget === preset
                         ? 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] font-black'
+                        : isLight
+                        ? 'bg-[#FAF7F2] text-[#4A4238] border-[#E5DEC9] hover:border-[#B8860B]'
                         : 'bg-[#14100c] text-slate-300 border-amber-950/40 hover:border-[#d4af37]/40'
                     }`}
                   >
@@ -619,10 +661,10 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               </div>
             </div>
 
-            {/* People Count Input Box with Stepper Controls */}
+            {/* People Count Input Box */}
             <div
               className={`p-5 rounded-3xl border space-y-3 ${
-                isLight ? 'bg-[#FAF7F2] border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
+                isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
               }`}
             >
               <label className="text-xs font-extrabold flex items-center gap-1.5 text-sky-400 uppercase tracking-wider">
@@ -633,7 +675,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setPeople(Math.max(1, people - 1))}
-                  className="w-11 h-11 rounded-2xl bg-[#14100c] hover:bg-sky-500 hover:text-white text-sky-400 border border-amber-950/60 font-black flex items-center justify-center transition-all cursor-pointer shrink-0"
+                  className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
+                    isLight
+                      ? 'bg-[#FAF7F2] hover:bg-sky-500 hover:text-white text-sky-600 border-[#E5DEC9]'
+                      : 'bg-[#14100c] hover:bg-sky-500 hover:text-white text-sky-400 border-amber-950/60'
+                  }`}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -648,7 +694,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   }
                   className={`w-full py-3 rounded-2xl border text-center text-base font-extrabold font-serif focus:outline-none focus:ring-2 transition-all ${
                     isLight
-                      ? 'bg-white border-[#E5DEC9] text-[#231F1D] focus:ring-sky-400'
+                      ? 'bg-[#FAF7F2] border-[#E5DEC9] text-[#231F1D] focus:ring-sky-500'
                       : 'bg-[#14100c] border-amber-950/60 text-white focus:ring-sky-400'
                   }`}
                 />
@@ -656,21 +702,28 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setPeople(Math.min(20, people + 1))}
-                  className="w-11 h-11 rounded-2xl bg-[#14100c] hover:bg-sky-500 hover:text-white text-sky-400 border border-amber-950/60 font-black flex items-center justify-center transition-all cursor-pointer shrink-0"
+                  className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
+                    isLight
+                      ? 'bg-[#FAF7F2] hover:bg-sky-500 hover:text-white text-sky-600 border-[#E5DEC9]'
+                      : 'bg-[#14100c] hover:bg-sky-500 hover:text-white text-sky-400 border-amber-950/60'
+                  }`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
 
-              <span className="text-[11px] text-slate-400 block text-center">
-                Hỗ trợ nhóm từ <strong className="text-sky-400">1 đến 20 người</strong>
-              </span>
+              <div className="flex justify-between items-center text-xs">
+                <span className={`text-[11px] ${isLight ? 'text-[#665E55]' : 'text-slate-400'}`}>
+                  Giới hạn:
+                </span>
+                <span className="font-bold text-sky-400 text-xs">1 - 20 người</span>
+              </div>
             </div>
 
-            {/* Num Days Input Box with Stepper Controls */}
+            {/* Num Days Input Box */}
             <div
               className={`p-5 rounded-3xl border space-y-3 ${
-                isLight ? 'bg-[#FAF7F2] border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
+                isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
               }`}
             >
               <label className="text-xs font-extrabold flex items-center gap-1.5 text-emerald-400 uppercase tracking-wider">
@@ -681,7 +734,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setNumDays(Math.max(1, numDays - 1))}
-                  className="w-11 h-11 rounded-2xl bg-[#14100c] hover:bg-emerald-500 hover:text-white text-emerald-400 border border-amber-950/60 font-black flex items-center justify-center transition-all cursor-pointer shrink-0"
+                  className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
+                    isLight
+                      ? 'bg-[#FAF7F2] hover:bg-emerald-500 hover:text-white text-emerald-600 border-[#E5DEC9]'
+                      : 'bg-[#14100c] hover:bg-emerald-500 hover:text-white text-emerald-400 border-amber-950/60'
+                  }`}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -696,7 +753,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   }
                   className={`w-full py-3 rounded-2xl border text-center text-base font-extrabold font-serif focus:outline-none focus:ring-2 transition-all ${
                     isLight
-                      ? 'bg-white border-[#E5DEC9] text-[#231F1D] focus:ring-emerald-400'
+                      ? 'bg-[#FAF7F2] border-[#E5DEC9] text-[#231F1D] focus:ring-emerald-500'
                       : 'bg-[#14100c] border-amber-950/60 text-white focus:ring-emerald-400'
                   }`}
                 />
@@ -704,38 +761,46 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setNumDays(Math.min(7, numDays + 1))}
-                  className="w-11 h-11 rounded-2xl bg-[#14100c] hover:bg-emerald-500 hover:text-white text-emerald-400 border border-amber-950/60 font-black flex items-center justify-center transition-all cursor-pointer shrink-0"
+                  className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
+                    isLight
+                      ? 'bg-[#FAF7F2] hover:bg-emerald-500 hover:text-white text-emerald-600 border-[#E5DEC9]'
+                      : 'bg-[#14100c] hover:bg-emerald-500 hover:text-white text-emerald-400 border-amber-950/60'
+                  }`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
 
-              <span className="text-[11px] text-slate-400 block text-center">
-                Thời gian chuyến đi từ <strong className="text-emerald-400">1 đến 7 ngày</strong>
-              </span>
+              <div className="flex justify-between items-center text-xs">
+                <span className={`text-[11px] ${isLight ? 'text-[#665E55]' : 'text-slate-400'}`}>
+                  Khuyến nghị:
+                </span>
+                <span className="font-bold text-emerald-400 text-xs">1 đến 7 ngày</span>
+              </div>
             </div>
           </div>
 
-          {/* Budget Priority Weights Section */}
+          {/* Priorities Selection */}
           <div className="space-y-4 pt-2">
-            <h4
+            <span
               className={`text-xs font-extrabold uppercase tracking-widest ${
                 isLight ? 'text-[#8A8075]' : 'text-slate-400'
-              }`}
+              } flex items-center gap-2`}
             >
-              1.3. Thiết Lập Mức Ưu Tiên Chi Phí Chuyến Đi:
-            </h4>
+              <Sliders className="w-4 h-4 text-[#d4af37]" />
+              Mức Độ Ưu Tiên Phân Bổ Chi Phí (Budget Priority):
+            </span>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* Stay Priority */}
               <div
                 className={`p-5 rounded-3xl border space-y-3 ${
-                  isLight ? 'bg-[#FAF7F2] border-sky-200' : 'bg-[#0C0805] border-sky-900/30'
+                  isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-sky-900/30'
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-bold text-sky-400">
                   <span className="flex items-center gap-2 font-serif text-sm">
-                    <Hotel className="w-4 h-4" /> Lưu Trú
+                    <Hotel className="w-4 h-4" /> Nơi Ở (Lưu Trú)
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -749,6 +814,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
                         priorities.stay === opt.value
                           ? 'bg-sky-500 text-white border-sky-500 shadow-md'
+                          : isLight
+                          ? 'bg-[#FAF7F2] text-[#4A4238] border-[#E5DEC9] hover:border-sky-500'
                           : 'bg-[#14100c] text-slate-300 border-amber-950/40 hover:border-sky-500/40'
                       }`}
                     >
@@ -761,7 +828,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               {/* Food Priority */}
               <div
                 className={`p-5 rounded-3xl border space-y-3 ${
-                  isLight ? 'bg-[#FAF7F2] border-amber-200' : 'bg-[#0C0805] border-amber-900/30'
+                  isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-900/30'
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-bold text-[#d4af37]">
@@ -780,6 +847,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
                         priorities.food === opt.value
                           ? 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-md font-black'
+                          : isLight
+                          ? 'bg-[#FAF7F2] text-[#4A4238] border-[#E5DEC9] hover:border-[#B8860B]'
                           : 'bg-[#14100c] text-slate-300 border-amber-950/40 hover:border-[#d4af37]/40'
                       }`}
                     >
@@ -792,7 +861,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               {/* Activity Priority */}
               <div
                 className={`p-5 rounded-3xl border space-y-3 ${
-                  isLight ? 'bg-[#FAF7F2] border-emerald-200' : 'bg-[#0C0805] border-emerald-900/30'
+                  isLight ? 'bg-white border-[#E5DEC9]' : 'bg-[#0C0805] border-emerald-900/30'
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
@@ -811,6 +880,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
                         priorities.activity === opt.value
                           ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
+                          : isLight
+                          ? 'bg-[#FAF7F2] text-[#4A4238] border-[#E5DEC9] hover:border-emerald-500'
                           : 'bg-[#14100c] text-slate-300 border-amber-950/40 hover:border-emerald-500/40'
                       }`}
                     >
@@ -823,11 +894,19 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
           </div>
 
           {/* Action Row Step 1 */}
-          <div className="flex justify-between items-center pt-4 border-t border-amber-950/40">
+          <div
+            className={`flex justify-between items-center pt-4 border-t ${
+              isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
+            }`}
+          >
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="px-6 py-3.5 rounded-2xl bg-[#0C0805] border border-amber-950/60 hover:border-[#d4af37] text-slate-200 text-xs font-extrabold flex items-center gap-2 cursor-pointer transition-all"
+              className={`px-6 py-3.5 rounded-2xl border text-xs font-extrabold flex items-center gap-2 cursor-pointer transition-all ${
+                isLight
+                  ? 'bg-white border-[#E5DEC9] hover:border-[#B8860B] text-[#231F1D]'
+                  : 'bg-[#0C0805] border-amber-950/60 hover:border-[#d4af37] text-slate-200'
+              }`}
             >
               <span>Tiếp Tục Chọn Sở Thích (Bước 2)</span>
               <ArrowRight className="w-4 h-4 text-[#d4af37]" />
@@ -859,15 +938,23 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
         </div>
       )}
 
-      {/* STEP 2: PREFERENCE FILTERING (OPTIONAL WITH SKIP) */}
+      {/* STEP 2: PREFERENCE FILTERING */}
       {step === 2 && (
         <div className="space-y-8">
-          <div className="flex items-center justify-between border-b border-amber-950/40 pb-4">
+          <div
+            className={`flex items-center justify-between border-b pb-4 ${
+              isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
+            }`}
+          >
             <div>
               <h4 className="text-lg font-extrabold text-[#d4af37] font-serif">
                 2. Lựa Chọn Sở Thích Cá Nhân (Preference Filtering)
               </h4>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p
+                className={`text-xs mt-0.5 ${
+                  isLight ? 'text-[#665E55]' : 'text-slate-400'
+                }`}
+              >
                 Các câu hỏi thiết kế dạng lựa chọn nhiều đáp án (Multiple Choice). Bạn có thể bỏ qua nếu muốn hệ thống tự động tối ưu.
               </p>
             </div>
@@ -875,7 +962,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="text-xs font-black text-amber-400 hover:underline flex items-center gap-1.5 cursor-pointer px-4 py-2 rounded-xl bg-amber-950/30 border border-amber-950/60"
+              className={`text-xs font-black flex items-center gap-1.5 cursor-pointer px-4 py-2 rounded-xl border transition-all ${
+                isLight
+                  ? 'bg-amber-100/60 border-amber-300 text-[#B8860B] hover:bg-amber-200'
+                  : 'bg-amber-950/30 border-amber-950/60 text-amber-400 hover:bg-amber-900/40'
+              }`}
             >
               <SkipForward className="w-4 h-4" /> Bỏ qua & Tạo Lịch Trình Ngay
             </button>
@@ -902,6 +993,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     className={`p-3.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-2 text-center ${
                       selected
                         ? 'bg-sky-500 text-white border-sky-400 shadow-xl scale-105'
+                        : isLight
+                        ? 'bg-white text-[#231F1D] border-[#E5DEC9] hover:border-sky-400'
                         : 'bg-[#0C0805] text-slate-300 border-amber-950/40 hover:border-sky-400/50'
                     }`}
                   >
@@ -935,6 +1028,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     className={`p-3.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-2.5 ${
                       selected
                         ? 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-xl font-extrabold'
+                        : isLight
+                        ? 'bg-white text-[#231F1D] border-[#E5DEC9] hover:border-[#B8860B]'
                         : 'bg-[#0C0805] text-slate-300 border-amber-950/40 hover:border-[#d4af37]/50'
                     }`}
                   >
@@ -968,6 +1063,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     className={`p-3.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-2.5 ${
                       selected
                         ? 'bg-emerald-500 text-white border-emerald-400 shadow-xl font-extrabold'
+                        : isLight
+                        ? 'bg-white text-[#231F1D] border-[#E5DEC9] hover:border-emerald-400'
                         : 'bg-[#0C0805] text-slate-300 border-amber-950/40 hover:border-emerald-400/50'
                     }`}
                   >
@@ -981,11 +1078,19 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
           </div>
 
           {/* Action Row Step 2 */}
-          <div className="flex justify-between items-center pt-6 border-t border-amber-950/40">
+          <div
+            className={`flex justify-between items-center pt-6 border-t ${
+              isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
+            }`}
+          >
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="px-6 py-3.5 rounded-2xl bg-[#0C0805] border border-amber-950/60 text-slate-300 text-xs font-extrabold flex items-center gap-2 cursor-pointer"
+              className={`px-6 py-3.5 rounded-2xl border text-xs font-extrabold flex items-center gap-2 cursor-pointer ${
+                isLight
+                  ? 'bg-white border-[#E5DEC9] text-[#231F1D] hover:bg-[#FAF7F2]'
+                  : 'bg-[#0C0805] border-amber-950/60 text-slate-300 hover:bg-slate-900'
+              }`}
             >
               <RotateCcw className="w-4 h-4 text-[#d4af37]" />
               <span>Quay Lại Bước 1</span>

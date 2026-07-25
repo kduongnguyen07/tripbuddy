@@ -201,17 +201,37 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 25 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-6xl bg-[#14100c] border-2 border-[#d4af37]/60 rounded-3xl overflow-hidden shadow-2xl z-[99999] my-auto text-white font-sans max-h-[92vh] flex flex-col"
+              className={`relative w-full max-w-6xl border-2 rounded-3xl overflow-hidden shadow-2xl z-[99999] my-auto font-sans max-h-[92vh] flex flex-col ${
+                isLight
+                  ? 'bg-[#FAF7F2] text-[#231F1D] border-[#B8860B]/40'
+                  : 'bg-[#14100c] text-white border-[#d4af37]/60'
+              }`}
             >
               {/* Modal Top Bar Header */}
-              <div className="p-6 bg-[#0C0805] border-b border-amber-950/60 flex items-center justify-between gap-4 shrink-0">
+              <div
+                className={`p-6 border-b flex items-center justify-between gap-4 shrink-0 ${
+                  isLight
+                    ? 'bg-white border-[#E5DEC9] text-[#231F1D]'
+                    : 'bg-[#0C0805] border-amber-950/60 text-white'
+                }`}
+              >
                 <div className="flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-[#d4af37]" />
+                  <Sliders
+                    className={`w-5 h-5 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}
+                  />
                   <div>
-                    <h3 className="text-xl font-bold font-serif text-white">
+                    <h3
+                      className={`text-xl font-bold font-serif ${
+                        isLight ? 'text-[#231F1D]' : 'text-white'
+                      }`}
+                    >
                       Điền Thông Tin Lập Lịch Trình
                     </h3>
-                    <p className="text-xs text-slate-400 font-sans">
+                    <p
+                      className={`text-xs font-sans ${
+                        isLight ? 'text-[#665E55]' : 'text-slate-400'
+                      }`}
+                    >
                       Nhập thông tin cơ bản, chọn gợi ý điểm đến & thiết lập mức ưu tiên chi phí
                     </p>
                   </div>
@@ -219,7 +239,11 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
 
                 <button
                   onClick={() => setShowFormModal(false)}
-                  className="w-10 h-10 rounded-full bg-[#14100c] hover:bg-[#d4af37] hover:text-[#0C0805] text-white flex items-center justify-center border border-amber-950/60 transition-all cursor-pointer shadow-lg shrink-0"
+                  className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all cursor-pointer shadow-lg shrink-0 ${
+                    isLight
+                      ? 'bg-[#FAF7F2] hover:bg-[#B8860B] hover:text-white text-[#231F1D] border-[#E5DEC9]'
+                      : 'bg-[#14100c] hover:bg-[#d4af37] hover:text-[#0C0805] text-white border-amber-950/60'
+                  }`}
                   title="Đóng Form"
                 >
                   <X className="w-5 h-5" />
@@ -227,7 +251,11 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
               </div>
 
               {/* Scrollable Form Content Inside Card */}
-              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 bg-[#14100c]">
+              <div
+                className={`p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 ${
+                  isLight ? 'bg-[#FAF7F2]' : 'bg-[#14100c]'
+                }`}
+              >
                 <TripConfigForm
                   onGeneratePlan={handleGeneratePlan}
                   loading={planLoading}
