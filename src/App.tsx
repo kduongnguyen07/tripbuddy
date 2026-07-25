@@ -299,10 +299,58 @@ function MainContent() {
   );
 }
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('App ErrorBoundary caught an exception:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0C0805] text-white flex flex-col items-center justify-center p-6 text-center font-sans space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-3xl">
+            ⚠️
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h2 className="text-2xl font-extrabold text-white">Đã Xảy Ra Lỗi Hiển Thị Giao Diện</h2>
+            <p className="text-xs text-slate-400">
+              {this.state.error?.message || 'Không thể nạp thành phần React.'}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.href = '/';
+            }}
+            className="px-6 py-3 rounded-full bg-[#d4af37] text-black font-extrabold text-xs uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-lg cursor-pointer"
+          >
+            Tải Lại Trang Chủ →
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function App() {
   return (
-    <DataProvider>
-      <MainContent />
-    </DataProvider>
+    <ErrorBoundary>
+      <DataProvider>
+        <MainContent />
+      </DataProvider>
+    </ErrorBoundary>
   );
 }

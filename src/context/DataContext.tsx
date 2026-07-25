@@ -98,7 +98,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     'phu-quoc': 'PQC',
   };
 
-  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>(() => {
+    try {
+      const deletedSet = new Set(getDeletedDestIds());
+      return (destinationsData as unknown as Destination[]).filter((d) => !deletedSet.has(d.id));
+    } catch {
+      return destinationsData as unknown as Destination[];
+    }
+  });
   const [destinationsError, setDestinationsError] = useState<string | null>(null);
 
   const [slides, setSlides] = useState<JourneySlide[]>(() => {
