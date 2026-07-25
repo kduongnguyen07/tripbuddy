@@ -237,17 +237,37 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
     seen_activity_ids: set[str] = set()
     seen_slots: set[tuple[int, str]] = set()
     intervals_by_day: dict[int, list[tuple[float, float]]] = {}
+    accommodation_selections: list[PlanSelection] = []
     for selection in state.selections:
         service = catalog.service(selection.service_id)
-        if not service or service.destination_id != state.destination_id or service.time_window != selection.slot:
+        if not service or service.destination_id != state.destination_id:
             raise ValueError("Invalid plan_state selection")
-        if selection.day and not 1 <= selection.day <= state.num_days:
+
+        if service.category == "stay":
+            if selection.slot != "overnight" or selection.day != 0:
+                raise ValueError("Accommodation must use the overnight slot with day 0")
+            if service.time_window != selection.slot:
+                raise ValueError("Invalid accommodation selection")
+            accommodation_selections.append(selection)
+            continue
+
+        if not 1 <= selection.day <= state.num_days:
             raise ValueError("Invalid plan_state day")
-        if service.category == "activity":
+        if service.category == "food":
+            if selection.slot not in MEAL_SLOTS:
+                raise ValueError("Food must use a meal slot")
+        elif service.category == "activity":
+            if selection.slot not in ACTIVITY_SLOTS:
+                raise ValueError("Activities must use an activity slot")
             if service.id in seen_activity_ids:
                 raise ValueError("An activity cannot be repeated")
             seen_activity_ids.add(service.id)
-        if selection.day and selection.slot in MEAL_SLOTS + ACTIVITY_SLOTS:
+        else:
+            raise ValueError("Unsupported service category")
+
+        if service.time_window != selection.slot:
+            raise ValueError("Invalid plan_state selection")
+        if selection.slot in MEAL_SLOTS + ACTIVITY_SLOTS:
             if not _service_fits_slot(service, selection.slot):
                 raise ValueError("Service duration does not fit its scheduled slot")
             marker = (selection.day, selection.slot)
@@ -262,7 +282,7 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
                 if interval_start < existing_end and existing_start < interval_end:
                     raise ValueError("Overlapping selections are not allowed")
             intervals_by_day[selection.day].append((interval_start, interval_end))
-    if sum(item.slot == "overnight" for item in state.selections) != (1 if state.num_days > 1 else 0):
+    if len(accommodation_selections) != (1 if state.num_days > 1 else 0):
         raise ValueError("Invalid accommodation selection")
     for day in range(1, state.num_days + 1):
         if {item.slot for item in state.selections if item.day == day}.issuperset(MEAL_SLOTS) is False:
@@ -309,15 +329,15 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
     timeline = []
     stay_per_night = totals["stay"] // nights if nights else 0
     for day in range(1, state.num_days + 1):
-        if lodging and day == 1:
+        if lodging and day <= nights:
             start_time, end_time = SLOT_TIMES["overnight"]
             daily_events[day].append({
-                **lodging.as_dict(state.people, nights),
+                **lodging.as_dict(state.people),
                 "day": day,
                 "slot": "overnight",
                 "start_time": start_time,
                 "end_time": end_time,
-                "total_cost_vnd": totals["stay"],
+                "total_cost_vnd": stay_per_night,
                 "display_cost_vnd": stay_per_night,
             })
         events = sorted(daily_events[day], key=lambda item: item["start_time"])
@@ -382,7 +402,7 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     target_cost = _selection_cost(target, state, catalog)
     candidates = []
     for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
-        if service.id == current.id or service.time_window != target.slot:
+        if service.id == current.id or service.category != current.category or service.time_window != target.slot:
             continue
         if service.category == "activity" and service.id in occupied_activity_ids:
             continue
