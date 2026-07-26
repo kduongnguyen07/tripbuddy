@@ -1095,7 +1095,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
                 {/* Services Data Table */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1">
-                  <div className="overflow-x-auto max-h-[calc(96vh-240px)] overflow-y-auto">
+                  {isServicesLoading ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-500">
+                      <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
+                      <span className="text-xs font-bold font-sans">Đang đồng bộ danh sách 500 dịch vụ từ Neon Postgres Database...</span>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[calc(96vh-240px)] overflow-y-auto">
                     <table className="w-full text-left text-xs font-sans">
                       <thead className="bg-slate-100/90 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
                         <tr>
@@ -1190,6 +1196,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </div>
               </div>
             )}
