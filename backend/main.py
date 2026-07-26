@@ -4,6 +4,7 @@ import os
 import uuid
 from datetime import datetime
 from functools import lru_cache
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -199,7 +200,11 @@ def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Dep
         tags=dest_data.get("tags", []),
         coordinates=dest_data.get("coordinates", [105.85, 21.02]),
         hero_image=dest_data.get("hero_image", ""),
+        gallery_images=dest_data.get("gallery_images", []),
+        satisfaction_scores=dest_data.get("satisfaction_scores", {"stay": 9.0, "food": 9.0, "transport": 9.0, "activities": 9.0}),
+        activities=dest_data.get("activities", []),
         description=dest_data.get("description", ""),
+        minimum_two_day_cost_vnd=int(dest_data.get("minimum_two_day_cost_vnd", 1500000)),
     )
     db.merge(db_dest)
     db.commit()

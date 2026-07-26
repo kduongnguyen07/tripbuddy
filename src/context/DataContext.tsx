@@ -169,7 +169,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .filter((d: any) => !deletedDestsSet.has(d.id))
               .map((d: any) => ({
                 id: d.id,
-                code: d.code || d.id.upper(),
+                code: d.code || (typeof d.id === 'string' ? d.id.toUpperCase() : String(d.id)),
                 name: d.name,
                 region: d.region,
                 category_type: d.category_type || 'city',

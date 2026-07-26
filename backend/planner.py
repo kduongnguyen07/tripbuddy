@@ -60,7 +60,6 @@ class PlanInfeasible(Exception):
             "reason": self.reason,
             "minimum_cost_vnd": self.minimum_cost,
             "shortfall_vnd": max(0, self.minimum_cost - self.total_budget),
-            "message": "Ngân sách hiện tại không đủ để xây dựng lịch trình phù hợp. Vui lòng tăng ngân sách hoặc rút ngắn thời gian chuyến đi.",
             **catalog_metadata(catalog),
             "message": messages.get(self.reason, "Không thể xây dựng lịch trình với các điều kiện đã chọn."),
         }

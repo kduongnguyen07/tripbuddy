@@ -19,11 +19,15 @@ class DestinationModel(Base):
     tags = Column(JSON, default=list) # e.g. ["city", "culture"]
     coordinates = Column(JSON, default=list) # e.g. [105.8542, 21.0285]
     hero_image = Column(Text, nullable=True)
+    gallery_images = Column(JSON, default=list)
+    satisfaction_scores = Column(JSON, default=dict)
+    activities = Column(JSON, default=list)
     description = Column(Text, nullable=True)
+    minimum_two_day_cost_vnd = Column(Integer, default=1500000)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def as_dict(self):
-        scores = getattr(self, "satisfaction_scores", None)
+        scores = self.satisfaction_scores
         if isinstance(scores, str):
             try:
                 scores = json.loads(scores)
@@ -32,7 +36,7 @@ class DestinationModel(Base):
         if not scores or not isinstance(scores, dict):
             scores = {"stay": 9.0, "food": 9.2, "transport": 8.8, "activities": 9.5}
 
-        gallery = getattr(self, "gallery_images", None)
+        gallery = self.gallery_images
         if isinstance(gallery, str):
             try:
                 gallery = json.loads(gallery)
@@ -41,7 +45,7 @@ class DestinationModel(Base):
         if not gallery or not isinstance(gallery, list):
             gallery = [self.hero_image] if self.hero_image else []
 
-        acts = getattr(self, "activities", None)
+        acts = self.activities
         if isinstance(acts, str):
             try:
                 acts = json.loads(acts)
@@ -63,7 +67,7 @@ class DestinationModel(Base):
             "satisfaction_scores": scores,
             "activities": acts,
             "description": self.description or "",
-            "minimum_two_day_cost_vnd": getattr(self, "minimum_two_day_cost_vnd", 1500000) or 1500000,
+            "minimum_two_day_cost_vnd": self.minimum_two_day_cost_vnd or 1500000,
         }
 
 
