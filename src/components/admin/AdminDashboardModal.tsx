@@ -10,6 +10,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
+import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface AdminDashboardModalProps {
@@ -30,8 +31,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 500 Dataset Services State - Strictly fetched from Neon Postgres DB
-  const [servicesList, setServicesList] = useState<any[]>([]);
+  // 500 Dataset Services State - Initialized with 500 dataset, refreshed from Neon Postgres DB
+  const [servicesList, setServicesList] = useState<any[]>(() => {
+    return fullDatasetRaw as any[];
+  });
   const [isServicesLoading, setIsServicesLoading] = useState<boolean>(false);
 
   const [serviceDestFilter, setServiceDestFilter] = useState<string>('ALL');
@@ -112,7 +115,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       const res = await fetch(`${API_BASE_URL}/db/services`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.status === 'success' && Array.isArray(data.services)) {
+        if (data && data.status === 'success' && Array.isArray(data.services) && data.services.length > 0) {
           setServicesList(data.services);
         }
       }
@@ -393,12 +396,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md font-sans text-slate-800">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-md font-sans text-slate-800">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="w-full max-w-7xl h-[92vh] bg-[#f8fafc] border border-slate-200/80 rounded-[32px] overflow-hidden shadow-2xl flex flex-col md:flex-row relative"
+        className="w-[98vw] max-w-[98vw] h-[96vh] bg-[#f8fafc] border border-slate-200/80 rounded-[28px] overflow-hidden shadow-2xl flex flex-col md:flex-row relative"
       >
         {/* Toast Notification */}
         <AnimatePresence>
@@ -1091,8 +1094,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                 </div>
 
                 {/* Services Data Table */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1">
+                  <div className="overflow-x-auto max-h-[calc(96vh-240px)] overflow-y-auto">
                     <table className="w-full text-left text-xs font-sans">
                       <thead className="bg-slate-100/90 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
                         <tr>
