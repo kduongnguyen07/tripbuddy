@@ -89,11 +89,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     (d.region || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const [serviceImageFilter, setServiceImageFilter] = useState<'ALL' | 'WITH_IMAGE' | 'NO_IMAGE'>('ALL');
+
   // Filtered Services logic for 500 dataset tab with null guards
   const filteredServices = (servicesList || []).filter((item) => {
     if (!item) return false;
     if (serviceDestFilter !== 'ALL' && item.destination_id !== serviceDestFilter) return false;
     if (serviceCatFilter !== 'ALL' && item.category !== serviceCatFilter) return false;
+    
+    // Image status filter
+    const hasValidImage = Boolean(item.image_url && typeof item.image_url === 'string' && item.image_url.trim().length > 5);
+    if (serviceImageFilter === 'WITH_IMAGE' && !hasValidImage) return false;
+    if (serviceImageFilter === 'NO_IMAGE' && hasValidImage) return false;
+
     if (serviceSearchQuery.trim()) {
       const q = serviceSearchQuery.toLowerCase();
       const matchName = (item.name || '').toLowerCase().includes(q);
@@ -109,6 +117,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     }
     return true;
   });
+
+  const totalServicesCount = (servicesList || []).length;
+  const servicesWithImageCount = (servicesList || []).filter(s => s.image_url && typeof s.image_url === 'string' && s.image_url.trim().length > 5).length;
+  const servicesNoImageCount = totalServicesCount - servicesWithImageCount;
+
 
   const fetchServicesFromDb = async () => {
     setIsServicesLoading(true);
@@ -996,87 +1009,115 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                 )}
 
                 {/* Filter Bar */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-                  {/* Destination Filter Buttons */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Điểm Đến:</span>
-                    {['ALL', 'HAN', 'HUE', 'DAD', 'DLD', 'PQC'].map((code) => (
-                      <button
-                        key={code}
-                        onClick={() => setServiceDestFilter(code)}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                          serviceDestFilter === code
-                            ? 'bg-slate-900 text-white shadow-sm'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {code === 'ALL' ? 'Tất Cả (500)' : code}
-                      </button>
-                    ))}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    {/* Destination Filter Buttons */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Điểm Đến:</span>
+                      {['ALL', 'HAN', 'HUE', 'DAD', 'DLD', 'PQC'].map((code) => (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => setServiceDestFilter(code)}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                            serviceDestFilter === code
+                              ? 'bg-slate-900 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {code === 'ALL' ? 'Tất Cả' : code}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Category Filter Buttons */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Phân Loại:</span>
+                      {[
+                        { id: 'ALL', label: 'Tất Cả' },
+                        { id: 'accommodation', label: '🏨 Lưu Trú' },
+                        { id: 'food', label: '🍲 Ẩm Thực' },
+                        { id: 'activity', label: '🎟️ Tham Quan' },
+                      ].map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setServiceCatFilter(cat.id)}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                            serviceCatFilter === cat.id
+                              ? 'bg-orange-500 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Local Search Input */}
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={serviceSearchQuery}
+                        onChange={(e) => setServiceSearchQuery(e.target.value)}
+                        placeholder="Lọc tên, ID, tag..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
                   </div>
 
-                  {/* Category Filter Buttons */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="font-bold text-slate-500 text-[11px] uppercase mr-1">Phân Loại:</span>
-                    {[
-                      { id: 'ALL', label: 'Tất Cả' },
-                      { id: 'accommodation', label: '🏨 Lưu Trú' },
-                      { id: 'food', label: '🍲 Ẩm Thực' },
-                      { id: 'activity', label: '🎟️ Tham Quan' },
-                    ].map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => setServiceCatFilter(cat.id)}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                          serviceCatFilter === cat.id
-                            ? 'bg-orange-500 text-white shadow-sm'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
-                  </div>
+                  {/* IMAGE STATUS CHECK & FILTER ROW (REQUIRED BY ADMIN) */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-slate-700 text-xs uppercase flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-orange-500" />
+                        <span>Bộ Lọc Trạng Thái Ảnh Minh Họa:</span>
+                      </span>
 
-                  {/* Local Search Input */}
-                  <div className="relative w-full md:w-64">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      value={serviceSearchQuery}
-                      onChange={(e) => setServiceSearchQuery(e.target.value)}
-                      placeholder="Lọc tên, ID, tag..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-orange-400"
-                    />
-                  </div>
-                </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setServiceImageFilter('ALL')}
+                          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                            serviceImageFilter === 'ALL'
+                              ? 'bg-slate-800 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Tất Cả ({totalServicesCount})
+                        </button>
 
-                {/* Table Result Counter */}
-                <div className="flex items-center justify-between text-xs text-slate-500 px-1 font-sans">
-                  <span>
-                    Hiển thị <strong className="text-slate-900">{filteredServices.length}</strong> / {servicesList.length} dịch vụ
-                  </span>
-                  <button
-                    onClick={async () => {
-                      if (window.confirm('Khôi phục toàn bộ dịch vụ gốc vào Neon Postgres Database?')) {
-                        try {
-                          setIsServicesLoading(true);
-                          for (const s of fullDatasetRaw as any[]) {
-                            await addServiceDb(s);
-                          }
-                          showToast('Đã đồng bộ tập dữ liệu dịch vụ vào Neon Postgres Database!');
-                          await fetchServicesFromDb();
-                        } catch (err) {
-                          alert('Lỗi kết nối Neon Postgres Database.');
-                        } finally {
-                          setIsServicesLoading(false);
-                        }
-                      }
-                    }}
-                    className="text-xs text-slate-500 hover:text-red-600 underline cursor-pointer flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Re-seed Dữ Liệu Postgres Mặc Định
-                  </button>
+                        <button
+                          type="button"
+                          onClick={() => setServiceImageFilter('WITH_IMAGE')}
+                          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                            serviceImageFilter === 'WITH_IMAGE'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                          }`}
+                        >
+                          <span>✅ Đã Có Ảnh Minh Họa ({servicesWithImageCount})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setServiceImageFilter('NO_IMAGE')}
+                          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                            serviceImageFilter === 'NO_IMAGE'
+                              ? 'bg-amber-600 text-white shadow-sm'
+                              : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 font-extrabold'
+                          }`}
+                        >
+                          <span>⚠️ Chưa Có Ảnh ({servicesNoImageCount})</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-bold text-slate-400">
+                      Hiển thị <strong>{filteredServices.length}</strong> / {servicesList.length} dịch vụ
+                    </span>
+                  </div>
                 </div>
 
                 {/* Services Data Table */}
@@ -1084,14 +1125,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                   {isServicesLoading ? (
                     <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-500">
                       <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
-                      <span className="text-xs font-bold font-sans">Đang đồng bộ danh sách 500 dịch vụ từ Neon Postgres Database...</span>
+                      <span className="text-xs font-bold font-sans">Đang đồng bộ danh sách dịch vụ từ Neon Postgres Database...</span>
                     </div>
                   ) : (
                     <div className="overflow-x-auto max-h-[calc(96vh-240px)] overflow-y-auto">
                     <table className="w-full text-left text-xs font-sans">
                       <thead className="bg-slate-100/90 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
                         <tr>
-                          <th className="p-3">ID & Ảnh</th>
+                          <th className="p-3">ID & Trạng Thái Ảnh</th>
                           <th className="p-3">Tên Dịch Vụ / Hoạt Động</th>
                           <th className="p-3">Điểm Đến & Phân Loại</th>
                           <th className="p-3">Giá (VNĐ)</th>
@@ -1101,21 +1142,54 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-medium">
-                        {filteredServices.slice(0, 150).map((srv) => (
-                          <tr key={srv.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3">
-                              <div className="flex items-center gap-2.5">
-                                <img
-                                  src={srv.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80'}
-                                  alt={srv.name}
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80';
-                                  }}
-                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                                />
-                                <span className="font-mono text-[10px] text-slate-400 font-bold">{srv.id}</span>
-                              </div>
-                            </td>
+                        {filteredServices.slice(0, 150).map((srv) => {
+                          const hasImg = Boolean(srv.image_url && typeof srv.image_url === 'string' && srv.image_url.trim().length > 5);
+
+                          return (
+                            <tr key={srv.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="p-3">
+                                <div className="flex items-center gap-2.5">
+                                  {hasImg ? (
+                                    <div className="relative shrink-0">
+                                      <img
+                                        src={srv.image_url}
+                                        alt={srv.name}
+                                        className="w-11 h-11 rounded-xl object-cover border-2 border-emerald-500/70 shadow-sm"
+                                      />
+                                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center shadow">
+                                        ✓
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="w-11 h-11 rounded-xl bg-amber-50 border-2 border-dashed border-amber-300 text-amber-600 flex flex-col items-center justify-center shrink-0">
+                                      <ImageIcon className="w-4 h-4" />
+                                      <span className="text-[8px] font-black uppercase text-amber-700">Trống</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-col">
+                                    <span className="font-mono text-[10px] text-slate-500 font-bold">{srv.id}</span>
+                                    {hasImg ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 w-max mt-0.5">
+                                        ✅ Đã có ảnh
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingService(srv);
+                                          setIsNewService(false);
+                                        }}
+                                        className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 w-max mt-0.5 cursor-pointer flex items-center gap-0.5"
+                                        title="Click để dán URL ảnh minh họa"
+                                      >
+                                        <Plus className="w-2.5 h-2.5" /> Thêm ảnh
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
                             <td className="p-3">
                               <span className="font-bold text-slate-900 text-xs block">{srv.name}</span>
                               {srv.booking_url && (
@@ -1178,8 +1252,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                               </div>
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
+                        );
+                      })}
+                    </tbody>
+
+
                     </table>
                   </div>
                   )}
