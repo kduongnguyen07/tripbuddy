@@ -292,6 +292,34 @@ export async function getSimilarDestinationsDb(
     }));
 }
 
+function getServiceIllustrationImage(item: any): string {
+  if (item.image_url && typeof item.image_url === 'string' && item.image_url.trim().length > 10) {
+    return item.image_url;
+  }
+  const cat = (item.category || '').toLowerCase();
+  const dest = (item.destination_id || '').toLowerCase();
+
+  if (cat === 'stay' || cat === 'accommodation') {
+    return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=85';
+  }
+  if (cat === 'food' || cat === 'dining') {
+    return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=85';
+  }
+  if (dest.includes('pqc') || dest.includes('phu-quoc')) {
+    return 'https://images.unsplash.com/photo-1730714103959-5d5a30acf547?auto=format&fit=crop&w=1200&q=85';
+  }
+  if (dest.includes('dld') || dest.includes('da-lat')) {
+    return 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85';
+  }
+  if (dest.includes('dad') || dest.includes('da-nang')) {
+    return 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=85';
+  }
+  if (dest.includes('hue')) {
+    return 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=85';
+  }
+  return 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=85';
+}
+
 function formatDatasetService(item: any, people: number, nights: number): PlanServiceItem {
   const isStay = item.category === 'accommodation' || item.category === 'stay';
   const priceVnd = Math.round(Number(item.price || 0) / 1000) * 1000;
@@ -310,13 +338,14 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
     time_window: isStay ? 'overnight' : 'anytime',
     rating: Number(item.rating || 4.5),
     tags: Array.isArray(item.tags) ? item.tags : [],
-    image_url: item.image_url || '',
+    image_url: getServiceIllustrationImage(item),
     affiliate_url: item.booking_url || '',
     total_cost_vnd: totalCost,
     day: 1,
     slot: 'morning',
   };
 }
+
 
 export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
   const destList = await getDestinationsFromDb();

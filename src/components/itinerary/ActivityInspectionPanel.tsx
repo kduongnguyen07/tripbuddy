@@ -16,8 +16,12 @@ import {
 } from 'lucide-react';
 import { PlanServiceItem, PlanSelection } from '../../types';
 import { useData } from '../../context/DataContext';
+import { SafeImage } from '../common/SafeImage';
+
+
 
 interface ActivityInspectionPanelProps {
+
   service: PlanServiceItem | null;
   destinationName?: string;
   onOpenSwapModal?: () => void;
@@ -63,11 +67,13 @@ export const ActivityInspectionPanel: React.FC<ActivityInspectionPanelProps> = (
       >
         {/* Large High-Res Hero Image Illustration */}
         <div className="relative h-64 sm:h-72 w-full overflow-hidden group">
-          <img
+          <SafeImage
             src={service.image_url}
             alt={service.name}
+            fallbackTitle={service.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
+
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
           {/* Badges Overlay */}
@@ -136,7 +142,8 @@ export const ActivityInspectionPanel: React.FC<ActivityInspectionPanelProps> = (
               <Tag className={`w-3.5 h-3.5 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} /> Thẻ Nhãn Đặc Trưng:
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {service.tags.map((tag) => (
+              {service.tags.map((tag: string) => (
+
                 <span
                   key={tag}
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold border ${

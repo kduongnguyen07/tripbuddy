@@ -12,8 +12,11 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { PlanServiceItem } from '../../types';
+import { SafeImage } from '../common/SafeImage';
+
 
 interface ActivityPreviewModalProps {
+
   isOpen: boolean;
   onClose: () => void;
   service: PlanServiceItem | null;
@@ -50,11 +53,13 @@ export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
         >
           {/* Large High-Res Image Header Preview */}
           <div className="relative h-64 sm:h-72 w-full overflow-hidden shrink-0">
-            <img
+            <SafeImage
               src={service.image_url}
               alt={service.name}
+              fallbackTitle={service.name}
               className="w-full h-full object-cover"
             />
+
             <div className="absolute inset-0 bg-gradient-to-t from-[#14100c] via-black/30 to-transparent" />
 
             {/* Close Button */}
@@ -124,7 +129,8 @@ export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
                 <Tag className="w-3.5 h-3.5 text-[#d4af37]" /> Thẻ Phân Loại Đặc Trưng:
               </span>
               <div className="flex flex-wrap gap-2">
-                {service.tags.map((tag) => (
+                {service.tags.map((tag: string) => (
+
                   <span
                     key={tag}
                     className="px-3 py-1 rounded-xl bg-[#0C0805] border border-amber-950/60 text-xs font-bold text-slate-300"

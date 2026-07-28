@@ -21,6 +21,7 @@ import {
 } from '../../types';
 import { ActivityPreviewModal } from './ActivityPreviewModal';
 import { useData } from '../../context/DataContext';
+import { SafeImage } from '../common/SafeImage';
 
 interface ItineraryTimelineProps {
   plan: MaterializedPlan;
@@ -187,11 +188,13 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       <div className={`relative w-16 h-16 rounded-2xl overflow-hidden border shrink-0 group-hover:scale-105 transition-transform duration-300 ${
                         isLight ? 'border-[#E5DEC9]' : 'border-amber-950/50'
                       }`}>
-                        <img
+                        <SafeImage
                           src={event.image_url}
                           alt={event.name}
+                          fallbackTitle={event.name}
                           className="w-full h-full object-cover"
                         />
+
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                           <Eye className={`w-4 h-4 ${isLight ? 'text-amber-300' : 'text-[#d4af37]'}`} />
                         </div>

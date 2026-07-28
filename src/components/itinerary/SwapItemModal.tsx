@@ -9,6 +9,8 @@ import {
 } from '../../types';
 import { getSwapOptionsApi, applySwapApi } from '../../services/api';
 import { useData } from '../../context/DataContext';
+import { SafeImage } from '../common/SafeImage';
+
 
 interface SwapItemModalProps {
   isOpen: boolean;
@@ -137,9 +139,10 @@ export const SwapItemModal: React.FC<SwapItemModalProps> = ({
           <div className={`p-4 border-b flex items-center gap-3 ${
             isLight ? 'bg-[#FAF7F2] border-[#E5DEC9]' : 'bg-[#0C0805] border-amber-950/40'
           }`}>
-            <img
+            <SafeImage
               src={targetService.image_url}
               alt={targetService.name}
+              fallbackTitle={targetService.name}
               className={`w-14 h-14 rounded-xl object-cover border shrink-0 ${isLight ? 'border-[#E5DEC9]' : 'border-amber-950/50'}`}
             />
             <div className="flex-1 min-w-0">
@@ -186,11 +189,13 @@ export const SwapItemModal: React.FC<SwapItemModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <img
+                      <SafeImage
                         src={candidate.image_url}
                         alt={candidate.name}
+                        fallbackTitle={candidate.name}
                         className={`w-16 h-16 rounded-2xl object-cover border shrink-0 ${isLight ? 'border-[#E5DEC9]' : 'border-amber-950/50'}`}
                       />
+
                       <div>
                         <h4 className={`font-bold text-sm font-serif ${isLight ? 'text-[#231F1D]' : 'text-white'}`}>
                           {candidate.name}
