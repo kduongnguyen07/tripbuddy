@@ -161,8 +161,9 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   loading,
   infeasibleError,
 }) => {
-  const { theme } = useData();
+  const { theme, destinations } = useData();
   const isLight = theme === 'light';
+
 
   // Step 1: Core Config, Step 2: Preferences
   const [step, setStep] = useState<1 | 2>(1);
@@ -224,7 +225,35 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     };
   }, [suggestDestination, totalBudget, people, numDays, priorities]);
 
-  const currentMeta = DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
+  const dbDest = (destinations || []).find((d) => {
+    const code = (d.code || d.id).toUpperCase();
+    const reqId = destinationId.toUpperCase();
+    if ((reqId === 'HA-NOI' || reqId === 'HAN') && code === 'HAN') return true;
+    if ((reqId === 'HUE' || reqId === 'HUE') && code === 'HUE') return true;
+    if ((reqId === 'DA-NANG' || reqId === 'DAD') && code === 'DAD') return true;
+    if ((reqId === 'DA-LAT' || reqId === 'DLD' || reqId === 'DLT') && (code === 'DLD' || code === 'DLT')) return true;
+    if ((reqId === 'PHU-QUOC' || reqId === 'PQC') && code === 'PQC') return true;
+    return d.id.toLowerCase() === destinationId.toLowerCase() || code === reqId;
+  });
+
+  const staticMeta = DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
+
+  const currentMeta = {
+    name: dbDest?.name || staticMeta.name,
+    region: dbDest?.region || staticMeta.region,
+    typeLabel: staticMeta.typeLabel,
+    heroImage: dbDest?.hero_image || staticMeta.heroImage,
+    description: dbDest?.description || staticMeta.description,
+    tags: (dbDest?.tags && dbDest.tags.length > 0) ? dbDest.tags : staticMeta.tags,
+    highlights: (dbDest?.activities && dbDest.activities.length > 0)
+      ? dbDest.activities.slice(0, 4).map((a) => a.name)
+      : staticMeta.highlights,
+    minBudgetPerDay: dbDest?.minimum_two_day_cost_vnd
+      ? `${Math.round(dbDest.minimum_two_day_cost_vnd / 2).toLocaleString('vi-VN')} đ/người`
+      : staticMeta.minBudgetPerDay,
+    rating: dbDest?.satisfaction_scores?.stay || staticMeta.rating,
+  };
+
 
   // Minimum required budget check
   const minRequiredCost = (numDays > 1 ? 800000 : 0) + 500000 * numDays * people;
@@ -421,13 +450,16 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 Điểm Đến (Tỉnh / Thành Phố Tại Việt Nam):
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {DESTINATIONS.map((dest) => (
+                {(destinations && destinations.length > 0
+                  ? destinations.map((d) => ({ id: d.id as DestinationId, name: d.name.split('-')[0].trim(), region: d.region }))
+                  : DESTINATIONS
+                ).map((dest) => (
                   <button
                     key={dest.id}
                     type="button"
                     onClick={() => setDestinationId(dest.id)}
                     className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer font-sans ${
-                      destinationId === dest.id
+                      destinationId === dest.id || destinationId.toUpperCase() === dest.id.toUpperCase()
                         ? isLight
                           ? 'bg-[#B8860B] text-white border-[#B8860B] shadow-xl scale-105 font-bold'
                           : 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-xl scale-105 font-black'
@@ -443,6 +475,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   </button>
                 ))}
               </div>
+
             </div>
           ) : (
             <div className="space-y-3">
@@ -572,7 +605,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     <Tag className="w-3 h-3 text-[#d4af37]" /> Thẻ Phân Loại Trải Nghiệm:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {currentMeta.tags.map((tag) => (
+                    {currentMeta.tags.map((tag: string) => (
+
                       <span
                         key={tag}
                         className={`px-2.5 py-1 rounded-xl text-xs font-bold ${

@@ -185,8 +185,12 @@ export interface TravelTipItem {
 
 export interface Destination {
   id: string;
+  code?: string;
   name: string;
   region: string;
+  category_type?: string;
+  tags?: string[];
+  description?: string;
   coordinates: [number, number];
   hero_image: string;
   gallery_images: string[];
@@ -200,6 +204,7 @@ export interface Destination {
   travel_tips?: TravelTipItem[];
   minimum_two_day_cost_vnd?: number;
 }
+
 
 export interface CategoryAllocation {
   amount: number;
