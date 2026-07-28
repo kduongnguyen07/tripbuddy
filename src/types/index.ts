@@ -3,7 +3,8 @@ export type PriorityLevel = 'none' | 'normal' | 'important' | 'very_important';
 export type LodgingStyle = 'hotel' | 'resort' | 'homestay' | 'villa' | 'hostel' | 'casual' | 'check_in' | 'luxury' | 'nature' | 'scenic_view' | 'street_food';
 export type FoodStyle = 'seafood' | 'local_specialty' | 'buffet' | 'street_food' | 'fine_dining' | 'cafe' | 'fast_food' | 'asian_food' | 'casual' | 'healthy' | 'scenic_view' | 'vegetarian' | 'western_food';
 export type ActivityStyle = 'check_in' | 'culture' | 'entertainment' | 'history' | 'nature' | 'scenic_view' | 'shopping' | 'street_food';
-export type DestinationId = 'ha-noi' | 'hue' | 'da-nang' | 'da-lat' | 'phu-quoc';
+export type DestinationId = 'ha-noi' | 'hue' | 'da-nang' | 'da-lat' | 'phu-quoc' | 'HAN' | 'HUE' | 'DAD' | 'DLD' | 'PQC' | string;
+
 
 export interface Priorities {
   stay: PriorityLevel;

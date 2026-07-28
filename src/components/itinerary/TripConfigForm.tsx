@@ -113,13 +113,14 @@ const DESTINATION_META: Record<
   },
 };
 
-const DESTINATIONS: { id: DestinationId; name: string; region: string }[] = [
-  { id: 'ha-noi', name: 'Hà Nội', region: 'Miền Bắc' },
-  { id: 'hue', name: 'Huế', region: 'Miền Trung' },
-  { id: 'da-nang', name: 'Đà Nẵng', region: 'Miền Trung' },
-  { id: 'da-lat', name: 'Đà Lạt', region: 'Tây Nguyên' },
-  { id: 'phu-quoc', name: 'Phú Quốc', region: 'Miền Nam' },
+const DESTINATIONS: { id: DestinationId; code: string; name: string; region: string }[] = [
+  { id: 'HAN', code: 'HAN', name: 'Hà Nội', region: 'Miền Bắc' },
+  { id: 'HUE', code: 'HUE', name: 'Huế', region: 'Miền Trung' },
+  { id: 'DAD', code: 'DAD', name: 'Đà Nẵng', region: 'Miền Trung' },
+  { id: 'DLD', code: 'DLD', name: 'Đà Lạt', region: 'Tây Nguyên' },
+  { id: 'PQC', code: 'PQC', name: 'Phú Quốc', region: 'Miền Nam' },
 ];
+
 
 const PRIORITY_OPTIONS: { value: PriorityLevel; label: string }[] = [
   { value: 'normal', label: 'Bình thường' },
@@ -168,8 +169,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   // Step 1: Core Config, Step 2: Preferences
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Core Inputs
-  const [destinationId, setDestinationId] = useState<DestinationId>('ha-noi');
+  // Core Inputs - Default to 'HAN' (Hà Nội)
+  const [destinationId, setDestinationId] = useState<DestinationId>('HAN');
   const [suggestDestination, setSuggestDestination] = useState<boolean>(false);
   const [totalBudget, setTotalBudget] = useState<number>(10000000); // 10 triệu VNĐ
   const [people, setPeople] = useState<number>(2);
@@ -225,16 +226,41 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     };
   }, [suggestDestination, totalBudget, people, numDays, priorities]);
 
-  const dbDest = (destinations || []).find((d) => {
-    const code = (d.code || d.id).toUpperCase();
-    const reqId = destinationId.toUpperCase();
-    if ((reqId === 'HA-NOI' || reqId === 'HAN') && code === 'HAN') return true;
-    if ((reqId === 'HUE' || reqId === 'HUE') && code === 'HUE') return true;
-    if ((reqId === 'DA-NANG' || reqId === 'DAD') && code === 'DAD') return true;
-    if ((reqId === 'DA-LAT' || reqId === 'DLD' || reqId === 'DLT') && (code === 'DLD' || code === 'DLT')) return true;
-    if ((reqId === 'PHU-QUOC' || reqId === 'PQC') && code === 'PQC') return true;
-    return d.id.toLowerCase() === destinationId.toLowerCase() || code === reqId;
-  });
+  const isSameDest = (id1: string, id2: string): boolean => {
+    const c1 = (id1 || '').toUpperCase();
+    const c2 = (id2 || '').toUpperCase();
+    if (c1 === c2) return true;
+    if ((c1 === 'HA-NOI' || c1 === 'HAN') && (c2 === 'HA-NOI' || c2 === 'HAN')) return true;
+    if (c1 === 'HUE' && c2 === 'HUE') return true;
+    if ((c1 === 'DA-NANG' || c1 === 'DAD') && (c2 === 'DA-NANG' || c2 === 'DAD')) return true;
+    if ((c1 === 'DA-LAT' || c1 === 'DLD' || c1 === 'DLT') && (c2 === 'DA-LAT' || c2 === 'DLD' || c2 === 'DLT')) return true;
+    if ((c1 === 'PHU-QUOC' || c1 === 'PQC') && (c2 === 'PHU-QUOC' || c2 === 'PQC')) return true;
+    return false;
+  };
+
+  const displayDestinations = React.useMemo(() => {
+    if (!destinations || destinations.length === 0) return DESTINATIONS;
+    const priorityOrder = ['HAN', 'HA-NOI', 'HUE', 'DAD', 'DA-NANG', 'DLD', 'DA-LAT', 'PQC', 'PHU-QUOC'];
+    return [...destinations].sort((a, b) => {
+      const codeA = (a.code || a.id).toUpperCase();
+      const codeB = (b.code || b.id).toUpperCase();
+      const idxA = priorityOrder.indexOf(codeA);
+      const idxB = priorityOrder.indexOf(codeB);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.name.localeCompare(b.name);
+    }).map((d) => ({
+      id: d.id as DestinationId,
+      code: d.code || d.id,
+      name: d.name.split('-')[0].trim(),
+      region: d.region,
+    }));
+  }, [destinations]);
+
+  const dbDest = (destinations || []).find((d) => 
+    isSameDest(destinationId, d.id) || isSameDest(destinationId, d.code || d.id)
+  );
 
   const staticMeta = DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
 
@@ -253,6 +279,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       : staticMeta.minBudgetPerDay,
     rating: dbDest?.satisfaction_scores?.stay || staticMeta.rating,
   };
+
 
 
   // Minimum required budget check
@@ -450,31 +477,33 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                 Điểm Đến (Tỉnh / Thành Phố Tại Việt Nam):
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {(destinations && destinations.length > 0
-                  ? destinations.map((d) => ({ id: d.id as DestinationId, name: d.name.split('-')[0].trim(), region: d.region }))
-                  : DESTINATIONS
-                ).map((dest) => (
-                  <button
-                    key={dest.id}
-                    type="button"
-                    onClick={() => setDestinationId(dest.id)}
-                    className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer font-sans ${
-                      destinationId === dest.id || destinationId.toUpperCase() === dest.id.toUpperCase()
-                        ? isLight
-                          ? 'bg-[#B8860B] text-white border-[#B8860B] shadow-xl scale-105 font-bold'
-                          : 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-xl scale-105 font-black'
-                        : isLight
-                        ? 'bg-white hover:bg-[#FAF7F2] text-[#231F1D] border-[#E5DEC9]'
-                        : 'bg-[#0C0805] hover:bg-slate-900 text-slate-300 border-amber-950/40'
-                    }`}
-                  >
-                    <span className="block font-bold text-sm font-serif">
-                      {dest.name}
-                    </span>
-                    <span className="text-[10px] opacity-80 block mt-0.5">{dest.region}</span>
-                  </button>
-                ))}
+                {displayDestinations.map((dest) => {
+                  const isSelected = isSameDest(destinationId, dest.id) || (dest.code && isSameDest(destinationId, dest.code));
+
+                  return (
+                    <button
+                      key={dest.id}
+                      type="button"
+                      onClick={() => setDestinationId(dest.id)}
+                      className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer font-sans ${
+                        isSelected
+                          ? isLight
+                            ? 'bg-[#B8860B] text-white border-[#B8860B] shadow-xl scale-105 font-bold'
+                            : 'bg-[#d4af37] text-[#0C0805] border-[#d4af37] shadow-xl scale-105 font-black'
+                          : isLight
+                          ? 'bg-white hover:bg-[#FAF7F2] text-[#231F1D] border-[#E5DEC9]'
+                          : 'bg-[#0C0805] hover:bg-slate-900 text-slate-300 border-amber-950/40'
+                      }`}
+                    >
+                      <span className="block font-bold text-sm font-serif">
+                        {dest.name}
+                      </span>
+                      <span className="text-[10px] opacity-80 block mt-0.5">{dest.region}</span>
+                    </button>
+                  );
+                })}
               </div>
+
 
             </div>
           ) : (

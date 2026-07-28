@@ -362,14 +362,15 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
 
 export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
   const destList = await getDestinationsFromDb();
-  const reqDestId = req.destination_id || 'ha-noi';
+  const reqDestId = req.destination_id || 'HAN';
   
   const targetCodes = (DEST_CODE_MAP[reqDestId] || [reqDestId, reqDestId.toUpperCase()]).map(c => c.toUpperCase());
   
   const dest = destList.find((d) => 
     d.id.toLowerCase() === reqDestId.toLowerCase() ||
     (d.code && targetCodes.includes(d.code.toUpperCase()))
-  ) || destList[0];
+  ) || destList.find((d) => (d.code || d.id).toUpperCase() === 'HAN') || destList[0];
+
 
   const rawServices = await getServicesFromDb(reqDestId);
   
