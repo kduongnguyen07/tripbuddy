@@ -165,12 +165,7 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
         {/* Action Buttons: PDF Exporter & Complete Trip */}
         <div className="flex items-center gap-3 shrink-0">
           <InfographicExporter
-            result={{
-              daily_itinerary: plan.daily_itinerary || [],
-              destination: plan.destination,
-              budget: plan.budget,
-            }}
-            timelineElementId="plan-result-page"
+            plan={plan}
           />
 
           <button

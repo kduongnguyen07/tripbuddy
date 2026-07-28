@@ -285,12 +285,7 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
             <div className="flex items-center gap-3">
               {/* PDF Exporter Button */}
               <InfographicExporter
-                result={{
-                  daily_itinerary: materializedPlan.daily_itinerary || [],
-                  destination: materializedPlan.destination,
-                  budget: materializedPlan.budget,
-                }}
-                timelineElementId="plan-results"
+                plan={materializedPlan}
               />
 
               {/* Complete Trip Button */}
