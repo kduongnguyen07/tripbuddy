@@ -166,11 +166,15 @@ export async function deleteDestinationDb(id: string): Promise<boolean> {
 // --------------------------------------------------------
 
 export async function getServicesFromDb(destinationId?: string): Promise<any[]> {
+  const destCodes = destinationId
+    ? (DEST_CODE_MAP[destinationId] || [destinationId, destinationId.toUpperCase()])
+    : null;
+
   try {
     let rows;
-    if (destinationId) {
-      const destCodes = DEST_CODE_MAP[destinationId] || [destinationId];
-      rows = await sql`SELECT * FROM services WHERE destination_id = ANY(${destCodes}) ORDER BY rating DESC`;
+    if (destCodes && destCodes.length > 0) {
+      const primaryCode = destCodes[0];
+      rows = await sql`SELECT * FROM services WHERE UPPER(destination_id) = UPPER(${primaryCode}) ORDER BY rating DESC`;
     } else {
       rows = await sql`SELECT * FROM services ORDER BY rating DESC LIMIT 500`;
     }
@@ -190,10 +194,19 @@ export async function getServicesFromDb(destinationId?: string): Promise<any[]> 
       }));
     }
   } catch (err) {
-    console.warn('Neon DB query failed for services, using local dataset:', err);
+    console.warn('Neon DB query failed for services, using local dataset fallback:', err);
   }
-  return fullDataset as any[];
+
+  // Fallback with strict destination matching
+  const dataset = fullDataset as any[];
+  if (destCodes && destCodes.length > 0) {
+    const uppercaseCodes = destCodes.map((c) => c.toUpperCase());
+    return dataset.filter((s) => uppercaseCodes.includes((s.destination_id || '').toUpperCase()));
+  }
+
+  return dataset;
 }
+
 
 export async function addServiceDb(srv: any): Promise<any> {
   const id = srv.id || `SRV_${srv.destination_id || 'HAN'}_${Date.now()}`;
@@ -349,8 +362,19 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
 
 export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
   const destList = await getDestinationsFromDb();
-  const dest = destList.find((d) => d.id === req.destination_id) || destList[0];
-  const destServices = await getServicesFromDb(req.destination_id);
+  const reqDestId = req.destination_id || 'ha-noi';
+  
+  const targetCodes = (DEST_CODE_MAP[reqDestId] || [reqDestId, reqDestId.toUpperCase()]).map(c => c.toUpperCase());
+  
+  const dest = destList.find((d) => 
+    d.id.toLowerCase() === reqDestId.toLowerCase() ||
+    (d.code && targetCodes.includes(d.code.toUpperCase()))
+  ) || destList[0];
+
+  const rawServices = await getServicesFromDb(reqDestId);
+  
+  // STRICT FILTERING GUARANTEE: Never allow services from another city to bleed into this plan!
+  const destServices = rawServices.filter((s) => targetCodes.includes((s.destination_id || '').toUpperCase()));
 
   const stays = destServices.filter((i) => i.category === 'accommodation' || i.category === 'stay');
   const foods = destServices.filter((i) => i.category === 'food');
@@ -359,8 +383,8 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const nights = Math.max(0, req.num_days - 1);
 
   const rawStay = stays.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0] || {
-    id: `SRV_${req.destination_id}_001`,
-    destination_id: req.destination_id,
+    id: `SRV_${targetCodes[0]}_001`,
+    destination_id: targetCodes[0],
     category: 'accommodation',
     sub_category: 'hotel',
     name: `Khách sạn cao cấp tại ${dest.name}`,
@@ -372,8 +396,33 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   lodgingService.time_window = 'overnight';
   const stayCost = lodgingService.total_cost_vnd;
 
-  const foodItemsFormatted = (foods.length > 0 ? foods : destServices).map((f) => formatDatasetService(f, req.people, nights));
-  const actItemsFormatted = (acts.length > 0 ? acts : destServices).map((a) => formatDatasetService(a, req.people, nights));
+  const foodSource = foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []);
+  const actSource = acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []);
+
+  const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
+  const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
+
+  if (foodItemsFormatted.length === 0) {
+    foodItemsFormatted.push(formatDatasetService({
+      id: `SRV_${targetCodes[0]}_FOOD_01`,
+      destination_id: targetCodes[0],
+      category: 'food',
+      name: `Thưởng thức ẩm thực đặc sản tại ${dest.name}`,
+      price: 150000,
+      rating: 4.8
+    }, req.people, nights));
+  }
+
+  if (actItemsFormatted.length === 0) {
+    actItemsFormatted.push(formatDatasetService({
+      id: `SRV_${targetCodes[0]}_ACT_01`,
+      destination_id: targetCodes[0],
+      category: 'activity',
+      name: `Tham quan các danh thắng nổi tiếng tại ${dest.name}`,
+      price: 100000,
+      rating: 4.8
+    }, req.people, nights));
+  }
 
   const selections: any[] = [];
   if (nights > 0) {
@@ -449,7 +498,7 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     },
     daily_itinerary: dailyItinerary,
     plan_state: {
-      destination_id: req.destination_id,
+      destination_id: dest.id as any,
       total_budget: req.total_budget,
       people: req.people,
       num_days: req.num_days,
@@ -464,8 +513,13 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 }
 
 export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOptionsResponse> {
-  const services = await getServicesFromDb(req.plan_state.destination_id);
-  const candidates = services.filter((item) => item.id !== req.target.service_id);
+  const destId = req.plan_state.destination_id;
+  const targetCodes = (DEST_CODE_MAP[destId] || [destId, destId.toUpperCase()]).map((c) => c.toUpperCase());
+  
+  const services = await getServicesFromDb(destId);
+  const candidates = services.filter((item) => 
+    targetCodes.includes((item.destination_id || '').toUpperCase()) && item.id !== req.target.service_id
+  );
   const formatted = candidates.slice(0, 5).map((c) => formatDatasetService(c, req.plan_state.people, req.plan_state.num_days - 1));
 
   return {
