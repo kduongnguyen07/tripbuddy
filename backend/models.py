@@ -22,6 +22,7 @@ class DestinationModel(Base):
     gallery_images = Column(JSON, default=list)
     satisfaction_scores = Column(JSON, default=dict)
     activities = Column(JSON, default=list)
+    travel_tips = Column(JSON, default=list)
     description = Column(Text, nullable=True)
     minimum_two_day_cost_vnd = Column(Integer, default=1500000)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -54,6 +55,15 @@ class DestinationModel(Base):
         if not isinstance(acts, list):
             acts = []
 
+        tips = self.travel_tips
+        if isinstance(tips, str):
+            try:
+                tips = json.loads(tips)
+            except Exception:
+                tips = []
+        if not isinstance(tips, list):
+            tips = []
+
         return {
             "id": self.id,
             "code": self.code or self.id.upper(),
@@ -66,9 +76,11 @@ class DestinationModel(Base):
             "gallery_images": gallery,
             "satisfaction_scores": scores,
             "activities": acts,
+            "travel_tips": tips,
             "description": self.description or "",
             "minimum_two_day_cost_vnd": self.minimum_two_day_cost_vnd or 1500000,
         }
+
 
 
 class ServiceModel(Base):
@@ -113,3 +125,27 @@ class SavedPlanModel(Base):
     num_days = Column(Integer, default=3)
     plan_data = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class SlideModel(Base):
+    __tablename__ = "slides"
+
+    id = Column(String(100), primary_key=True, index=True)
+    category = Column(String(200), nullable=False)
+    title = Column(String(200), nullable=False)
+    titleHighlight = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    image = Column(Text, nullable=False)
+    imageCaptionTitle = Column(String(200), nullable=True)
+    imageCaptionSub = Column(String(200), nullable=True)
+    features = Column(JSON, default=list)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class SiteConfigModel(Base):
+    __tablename__ = "site_config"
+
+    key = Column(String(100), primary_key=True, index=True)
+    value = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+

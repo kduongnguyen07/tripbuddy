@@ -11,7 +11,8 @@ import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
 import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
-import { API_BASE_URL } from '../../config/apiConfig';
+import { getServicesFromDb, addServiceDb, deleteServiceDb } from '../../services/neonDb';
+
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -112,12 +113,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   const fetchServicesFromDb = async () => {
     setIsServicesLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/db/services`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.status === 'success' && Array.isArray(data.services) && data.services.length > 0) {
-          setServicesList(data.services);
-        }
+      const services = await getServicesFromDb();
+      if (services && Array.isArray(services) && services.length > 0) {
+        setServicesList(services);
       }
     } catch (err) {
       console.error('Lỗi khi kết nối Database lấy danh sách dịch vụ:', err);
@@ -155,17 +153,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     };
 
     try {
-      const res = await fetch(`${API_BASE_URL}/db/services`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemToSave),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error(`Lỗi lưu dịch vụ (${res.status}): ${errText}`);
-      }
-
+      await addServiceDb(itemToSave);
       showToast(`Đã lưu thành công dịch vụ "${itemToSave.name}" vào Neon Postgres Database!`);
       await fetchServicesFromDb();
       setEditingService(null);
@@ -177,11 +165,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
   const handleDeleteService = async (id: string) => {
     if (window.confirm(`Xác nhận xóa vĩnh viễn dịch vụ ID "${id}" khỏi Neon Postgres Database?`)) {
       try {
-        const res = await fetch(`${API_BASE_URL}/db/services/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`Lỗi xóa dịch vụ (${res.status}): ${errText}`);
-        }
+        await deleteServiceDb(id);
         showToast(`Đã xóa thành công dịch vụ ${id} khỏi Neon Postgres Database!`);
         await fetchServicesFromDb();
       } catch (err: any) {
@@ -189,6 +173,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       }
     }
   };
+
 
   const handleExportDatasetJSON = () => {
     const jsonStr = JSON.stringify(servicesList, null, 2);
@@ -1073,17 +1058,18 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                   </span>
                   <button
                     onClick={async () => {
-                      if (window.confirm('Khôi phục toàn bộ 500 dịch vụ gốc vào Neon Postgres Database?')) {
+                      if (window.confirm('Khôi phục toàn bộ dịch vụ gốc vào Neon Postgres Database?')) {
                         try {
-                          const res = await fetch(`${API_BASE_URL}/db/seed`, { method: 'POST' });
-                          if (res.ok) {
-                            showToast('Đã re-seed tập dữ liệu 500 dịch vụ thành công vào Neon Postgres Database!');
-                            await fetchServicesFromDb();
-                          } else {
-                            alert('Không thể re-seed Database.');
+                          setIsServicesLoading(true);
+                          for (const s of fullDatasetRaw as any[]) {
+                            await addServiceDb(s);
                           }
+                          showToast('Đã đồng bộ tập dữ liệu dịch vụ vào Neon Postgres Database!');
+                          await fetchServicesFromDb();
                         } catch (err) {
-                          alert('Lỗi kết nối Backend Re-seed API.');
+                          alert('Lỗi kết nối Neon Postgres Database.');
+                        } finally {
+                          setIsServicesLoading(false);
                         }
                       }
                     }}
@@ -1380,7 +1366,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                             <div key={item.id || idx} className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                               
                               {/* Name */}
-                              <div className="sm:col-span-4">
+                              <div className="sm:col-span-3">
                                 <label className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Tên Hoạt Động / Dịch Vụ</label>
                                 <input
                                   type="text"
@@ -1391,26 +1377,53 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                               </div>
 
                               {/* Image URL */}
-                              <div className="sm:col-span-4">
-                                <label className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Link Ảnh Minh Họa (Image URL)</label>
+                              <div className="sm:col-span-3">
+                                <label className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Link Ảnh (Image URL)</label>
                                 <input
                                   type="text"
                                   value={item.image || ''}
-                                  placeholder="Dán link ảnh minh họa..."
+                                  placeholder="Dán link ảnh..."
                                   onChange={(e) => handleUpdateActivityItem(idx, { ...item, image: e.target.value })}
                                   className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700"
                                 />
                               </div>
 
                               {/* Cost */}
-                              <div className="sm:col-span-3">
-                                <label className="block text-[10px] text-slate-700 font-bold uppercase mb-1">Giá Thành (VND)</label>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] text-slate-700 font-bold uppercase mb-1">Giá Vé (VND)</label>
                                 <input
                                   type="number"
                                   step="10000"
                                   value={item.cost}
                                   onChange={(e) => handleUpdateActivityItem(idx, { ...item, cost: parseInt(e.target.value) || 0 })}
                                   className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-extrabold"
+                                />
+                              </div>
+
+                              {/* Duration */}
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Thời Gian (Giờ)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0.1"
+                                  value={item.duration_hrs || 2.0}
+                                  onChange={(e) => handleUpdateActivityItem(idx, { ...item, duration_hrs: parseFloat(e.target.value) || 1.0 })}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold"
+                                />
+                              </div>
+
+                              {/* Score */}
+                              <div className="sm:col-span-1">
+                                <label className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Điểm ★</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  max="10"
+                                  min="1"
+                                  value={item.score || 9.5}
+                                  onChange={(e) => handleUpdateActivityItem(idx, { ...item, score: parseFloat(e.target.value) || 9.0 })}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-amber-600 font-extrabold"
                                 />
                               </div>
 
@@ -1428,6 +1441,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                             </div>
                           ))}
                         </div>
+
                       </div>
 
                       {/* TRAVEL TIPS EDITOR SECTION */}

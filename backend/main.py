@@ -208,6 +208,40 @@ def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Dep
     )
     db.merge(db_dest)
     db.commit()
+    # ---- Persist to JSON dataset ----
+    try:
+        json_path = Path(__file__).parent / "tripbudget_full_dataset_500.json"
+        if json_path.exists():
+            with open(json_path, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+        else:
+            dataset = []
+        # Replace or append the destination entry
+        existing_idx = next((i for i, d in enumerate(dataset) if d.get("id") == dest_id), None)
+        dest_dict = {
+            "id": dest_id,
+            "code": db_dest.code,
+            "name": db_dest.name,
+            "region": db_dest.region,
+            "category_type": db_dest.category_type,
+            "tags": db_dest.tags,
+            "coordinates": db_dest.coordinates,
+            "hero_image": db_dest.hero_image,
+            "gallery_images": db_dest.gallery_images,
+            "satisfaction_scores": db_dest.satisfaction_scores,
+            "activities": db_dest.activities,
+            "description": db_dest.description,
+            "minimum_two_day_cost_vnd": db_dest.minimum_two_day_cost_vnd,
+        }
+        if existing_idx is not None:
+            dataset[existing_idx] = dest_dict
+        else:
+            dataset.append(dest_dict)
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(dataset, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        # Log but do not fail the request
+        print(f"[WARN] Failed to sync JSON dataset: {e}")
     return {"status": "success", "destination": db_dest.as_dict()}
 
 

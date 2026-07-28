@@ -3,7 +3,20 @@ import { Destination, JourneySlide, HeroConfig } from '../types';
 import destinationsData from '../data/destinationsData.json';
 import slidesData from '../data/slidesData.json';
 import { fetchCloudData, saveCloudData } from '../services/cloudStorage';
-import { API_BASE_URL } from '../config/apiConfig';
+import {
+  getDestinationsFromDb,
+  addDestinationDb,
+  updateDestinationDb as updateDestInDb,
+  deleteDestinationDb as deleteDestInDb,
+  getHeroConfigFromDb,
+  updateHeroConfigDb,
+  getSlidesFromDb,
+  addSlideDb,
+  updateSlideDb,
+  deleteSlideDb as deleteSlideFromDb,
+} from '../services/neonDb';
+
+
 
 export const DEFAULT_HERO_CONFIG: HeroConfig = {
   badge: 'VIỆT NAM VÀ NHỮNG CHUYẾN ĐI',
@@ -152,7 +165,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
-  // Load destinations strictly from backend Database (100% Neon Postgres)
+  // Load all site data strictly from Neon Postgres Database
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
@@ -161,39 +174,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const deletedDestsSet = new Set(getDeletedDestIds());
 
       try {
-        const dbRes = await fetch(`${API_BASE_URL}/db/destinations`);
-        if (dbRes.ok) {
-          const dbJson = await dbRes.json();
-          if (dbJson && dbJson.status === 'success' && Array.isArray(dbJson.destinations)) {
-            const filtered = dbJson.destinations
-              .filter((d: any) => !deletedDestsSet.has(d.id))
-              .map((d: any) => ({
-                id: d.id,
-                code: d.code || (typeof d.id === 'string' ? d.id.toUpperCase() : String(d.id)),
-                name: d.name,
-                region: d.region,
-                category_type: d.category_type || 'city',
-                tags: d.tags || [],
-                coordinates: d.coordinates || [105.8542, 21.0285],
-                hero_image: d.hero_image || '',
-                gallery_images: d.gallery_images || [d.hero_image || ''],
-                satisfaction_scores: d.satisfaction_scores || { stay: 9.0, food: 9.0, transport: 9.0, activities: 9.0 },
-                activities: d.activities || [],
-                description: d.description || '',
-                minimum_two_day_cost_vnd: d.minimum_two_day_cost_vnd || 1500000,
-              }));
-            if (isMounted) {
-              setDestinations(filtered);
-            }
-          } else {
-            if (isMounted) setDestinationsError('Không thể tải danh sách điểm đến từ Database backend.');
-          }
-        } else {
-          if (isMounted) setDestinationsError(`Lỗi kết nối Backend Database (HTTP ${dbRes.status}).`);
+        const [dests, hero, dbSlides] = await Promise.all([
+          getDestinationsFromDb(),
+          getHeroConfigFromDb(),
+          getSlidesFromDb(),
+        ]);
+
+        const filtered = dests.filter((d) => !deletedDestsSet.has(d.id));
+        if (isMounted) {
+          setDestinations(filtered);
+          if (hero) setHeroConfig(hero);
+          if (dbSlides && dbSlides.length > 0) setSlides(dbSlides);
         }
       } catch (dbErr) {
-        console.error('Lỗi kết nối Backend Database:', dbErr);
-        if (isMounted) setDestinationsError('Không thể kết nối Backend Database. Vui lòng đảm bảo server backend (Neon Postgres) đang hoạt động.');
+        console.error('Lỗi kết nối Neon Postgres Database:', dbErr);
+        if (isMounted) setDestinationsError('Không thể kết nối Neon Database. Vui lòng kiểm tra kết nối internet.');
       }
 
       if (isMounted) {
@@ -231,97 +226,76 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Destination Actions - Strictly require DB operation success
+  // Destination Actions - Directly modify Neon Postgres Database
   const addDestination = async (dest: Destination): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/db/destinations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dest),
+    const savedDest = await addDestinationDb(dest);
+    setDestinations((prev) => {
+      const updated = [savedDest, ...prev.filter((d) => d.id !== savedDest.id)];
+      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      return updated;
     });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Lỗi lưu điểm đến vào Neon Postgres Database (${res.status}): ${errText}`);
-    }
-    const data = await res.json();
-    const savedDest = data.destination ? { ...dest, ...data.destination } : dest;
-    setDestinations((prev) => [savedDest, ...prev.filter((d) => d.id !== savedDest.id)]);
     notifyStateChange();
   };
 
   const updateDestination = async (dest: Destination): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/db/destinations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dest),
+    const savedDest = await updateDestInDb(dest);
+    setDestinations((prev) => {
+      const updated = prev.map((d) => (d.id === savedDest.id ? savedDest : d));
+      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      return updated;
     });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Lỗi cập nhật điểm đến vào Neon Postgres Database (${res.status}): ${errText}`);
-    }
-    const data = await res.json();
-    const savedDest = data.destination ? { ...dest, ...data.destination } : dest;
-    setDestinations((prev) => prev.map((d) => (d.id === savedDest.id ? savedDest : d)));
     notifyStateChange();
   };
 
   const deleteDestination = async (id: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/db/destinations/${id}`, {
-      method: 'DELETE',
+    await deleteDestInDb(id);
+    setDestinations((prev) => {
+      const updated = prev.filter((d) => d.id !== id);
+      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      return updated;
     });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Lỗi xóa điểm đến khỏi Neon Postgres Database (${res.status}): ${errText}`);
-    }
-    setDestinations((prev) => prev.filter((d) => d.id !== id));
     notifyStateChange();
   };
 
-  // Slide Actions
-  const addSlide = (slide: JourneySlide) => {
-    const updated = [...slides, slide];
-    setSlides(updated);
-    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
-
-    const deleted = getDeletedSlideIds().filter((id) => id !== slide.id);
-    localStorage.setItem('tripbudget_deleted_slides', JSON.stringify(deleted));
-
-    markLocalUpdate();
-    pushStateToCloud(destinations, updated, heroConfig);
+  // Slide Actions - Directly modify Neon Postgres Database
+  const addSlide = async (slide: JourneySlide) => {
+    const savedSlide = await addSlideDb(slide);
+    setSlides((prev) => {
+      const updated = [...prev.filter((s) => s.id !== savedSlide.id), savedSlide];
+      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      return updated;
+    });
     notifyStateChange();
   };
 
-  const updateSlide = (slide: JourneySlide) => {
-    const updated = slides.map((s) => (s.id === slide.id ? slide : s));
-    setSlides(updated);
-    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
-    markLocalUpdate();
-    pushStateToCloud(destinations, updated, heroConfig);
+  const updateSlide = async (slide: JourneySlide) => {
+    const savedSlide = await updateSlideDb(slide);
+    setSlides((prev) => {
+      const updated = prev.map((s) => (s.id === savedSlide.id ? savedSlide : s));
+      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      return updated;
+    });
     notifyStateChange();
   };
 
-  const deleteSlide = (id: string) => {
-    const updated = slides.filter((s) => s.id !== id);
-    setSlides(updated);
-    localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
-
-    const deleted = getDeletedSlideIds();
-    if (!deleted.includes(id)) {
-      localStorage.setItem('tripbudget_deleted_slides', JSON.stringify([...deleted, id]));
-    }
-
-    markLocalUpdate();
-    pushStateToCloud(destinations, updated, heroConfig);
+  const deleteSlide = async (id: string) => {
+    await deleteSlideFromDb(id);
+    setSlides((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      return updated;
+    });
     notifyStateChange();
   };
 
-  // Hero Actions
-  const updateHeroConfig = (config: HeroConfig) => {
-    setHeroConfig(config);
-    localStorage.setItem('tripbudget_hero', JSON.stringify(config));
-    markLocalUpdate();
-    pushStateToCloud(destinations, slides, config);
+  // Hero Actions - Directly modify Neon Postgres Database
+  const updateHeroConfig = async (config: HeroConfig) => {
+    const savedHero = await updateHeroConfigDb(config);
+    setHeroConfig(savedHero);
+    localStorage.setItem('tripbudget_hero', JSON.stringify(savedHero));
     notifyStateChange();
   };
+
 
   // Backup Tools
   const exportDataJSON = () => {

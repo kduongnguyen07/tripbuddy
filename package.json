@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/leaflet": "^1.9.21",
     "canvas-confetti": "^1.9.3",
