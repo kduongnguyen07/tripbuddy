@@ -136,7 +136,31 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
 
             {/* Time Slot Events List */}
             <div className="space-y-4">
-              {dayPlan.events.map((event) => {
+              {[...dayPlan.events]
+                .sort((a, b) => {
+                  const getMinutes = (item: PlanServiceItem) => {
+                    if (item.slot === 'overnight' || (item.category as string) === 'stay') return 0;
+                    const weights: Record<string, number> = {
+                      overnight: 0,
+                      breakfast: 800,
+                      morning: 930,
+                      check_out: 1200,
+                      lunch: 1230,
+                      check_in: 1400,
+                      afternoon: 1430,
+                      dinner: 1900,
+                      evening: 2030,
+                    };
+                    if (item.start_time && item.start_time.includes(':')) {
+                      const parts = item.start_time.split(':').map(Number);
+                      return (parts[0] || 0) * 100 + (parts[1] || 0);
+                    }
+                    return weights[item.slot || ''] || 1000;
+                  };
+                  return getMinutes(a) - getMinutes(b);
+                })
+                .map((event) => {
+
                 const slotInfo = SLOT_LABELS[event.slot || 'morning'] || {
                   label: event.slot,
                   icon: Ticket,

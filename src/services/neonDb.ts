@@ -548,11 +548,35 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
       dayEvents.push(createCheckOutEvent(lodgingService, dayNum));
     }
 
+    // STRICT CHRONOLOGICAL SORTING BY TIME (08:00 -> 09:30 -> 12:00 Check-out -> 12:30 Lunch -> 14:00 Check-in -> 14:30 -> 19:00)
+    const parseTimeToMinutes = (timeStr?: string, slot?: string): number => {
+      if (slot === 'overnight' || slot === 'stay') return 0;
+      const slotWeights: Record<string, number> = {
+        overnight: 0,
+        breakfast: 800,
+        morning: 930,
+        check_out: 1200,
+        lunch: 1230,
+        check_in: 1400,
+        afternoon: 1430,
+        dinner: 1900,
+        evening: 2030,
+      };
+      if (timeStr && timeStr.includes(':')) {
+        const parts = timeStr.split(':').map(Number);
+        return (parts[0] || 0) * 100 + (parts[1] || 0);
+      }
+      return slotWeights[slot || ''] || 1000;
+    };
+
+    dayEvents.sort((a, b) => parseTimeToMinutes(a.start_time, a.slot) - parseTimeToMinutes(b.start_time, b.slot));
+
     selections.push({ service_id: bfastEv.id, day: dayNum, slot: 'breakfast' });
     selections.push({ service_id: morningEv.id, day: dayNum, slot: 'morning' });
     selections.push({ service_id: lunchEv.id, day: dayNum, slot: 'lunch' });
     selections.push({ service_id: afternoonEv.id, day: dayNum, slot: 'afternoon' });
     selections.push({ service_id: dinnerEv.id, day: dayNum, slot: 'dinner' });
+
 
     const dayFoodTotal = bfastEv.total_cost_vnd + lunchEv.total_cost_vnd + dinnerEv.total_cost_vnd;
     const dayActTotal = morningEv.total_cost_vnd + afternoonEv.total_cost_vnd;
