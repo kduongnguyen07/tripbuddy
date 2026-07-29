@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Destination, JourneySlide, HeroConfig } from '../types';
 import destinationsData from '../data/destinationsData.json';
 import slidesData from '../data/slidesData.json';
-import { fetchCloudData, saveCloudData } from '../services/cloudStorage';
+
 import {
   getDestinationsFromDb,
   addDestinationDb,

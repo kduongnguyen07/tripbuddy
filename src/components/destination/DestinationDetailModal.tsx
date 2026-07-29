@@ -1,6 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Star, Calendar, Clock, DollarSign, Sparkles, Compass, CheckCircle2, ChevronRight } from 'lucide-react';
+import { X, MapPin, Star, Clock, ChevronRight, Sparkles, Compass } from 'lucide-react';
+
+
+
 import { Destination } from '../../types';
 import { SafeImage } from '../common/SafeImage';
 

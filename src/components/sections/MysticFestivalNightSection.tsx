@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Flame, ArrowRight } from 'lucide-react';
+import { Flame, ArrowRight } from 'lucide-react';
+
 import { handleImageError, VIETNAM_LANDMARK_IMAGES } from '../../utils/imageUtils';
 
 export const MysticFestivalNightSection: React.FC = () => {

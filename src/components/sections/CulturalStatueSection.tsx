@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Award, Compass, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+
 import { handleImageError, VIETNAM_LANDMARK_IMAGES } from '../../utils/imageUtils';
 
 export const CulturalStatueSection: React.FC = () => {

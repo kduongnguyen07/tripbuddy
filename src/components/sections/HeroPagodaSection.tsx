@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Compass, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
+
+
 import { handleImageError, VIETNAM_LANDMARK_IMAGES } from '../../utils/imageUtils';
 
 interface HeroPagodaSectionProps {

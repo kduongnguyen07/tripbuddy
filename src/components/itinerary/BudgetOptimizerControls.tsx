@@ -1,6 +1,6 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Sliders, Utensils, Hotel, Car, Ticket, Sparkles, RefreshCw, Calendar } from 'lucide-react';
+
 import { OptimizationResult, UserPreferences } from '../../types';
 import { useData } from '../../context/DataContext';
 

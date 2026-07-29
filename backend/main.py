@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime
-from functools import lru_cache
-from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from backend.catalog import CatalogRepository
 from backend.database import get_db, engine, Base
-from backend.models import DestinationModel, ServiceModel, SavedPlanModel
+from backend.models import DestinationModel, ServiceModel
+
 from backend.planner import PlanInfeasible, apply_swap, generate_plan, get_similar_destinations, recommend_destinations, swap_options
 from backend.schemas import (
     ApplySwapRequest,

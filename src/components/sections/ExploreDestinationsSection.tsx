@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star } from 'lucide-react';
+
 import { Destination } from '../../types';
 
 interface ExploreDestinationsProps {

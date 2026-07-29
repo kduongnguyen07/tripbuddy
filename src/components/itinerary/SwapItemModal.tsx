@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RefreshCw, Star, CheckCircle, ExternalLink } from 'lucide-react';
+import { X, RefreshCw, Star, CheckCircle } from 'lucide-react';
+
 import {
   PlanSelection,
   PlanState,

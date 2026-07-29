@@ -7,13 +7,12 @@ import {
   ExternalLink,
   RefreshCw,
   Info,
-  CheckCircle2,
-  MapPin,
-  Sparkles,
-  DollarSign,
   Compass,
+  CheckCircle2,
   Image as ImageIcon,
 } from 'lucide-react';
+
+
 import { PlanServiceItem, PlanSelection } from '../../types';
 import { useData } from '../../context/DataContext';
 import { SafeImage } from '../common/SafeImage';

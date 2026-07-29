@@ -18,19 +18,17 @@
     "jspdf": "^2.5.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.27.0",
-    "mapbox-gl": "^3.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.12.7",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
-    "@types/mapbox-gl": "^3.1.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "typescript": "^5.4.5",
     "vite": "^5.2.11"
   }
+
 }

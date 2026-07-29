@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Wallet, Hotel, Utensils, Ticket, CheckCircle2, TrendingUp, Users } from 'lucide-react';
+
+
 import { BudgetOverview, MaterializedPlan } from '../../types';
 import { useData } from '../../context/DataContext';
 
