@@ -550,9 +550,15 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
     // STRICT CHRONOLOGICAL SORTING BY TIME (08:00 -> 09:30 -> 12:00 Check-out -> 12:30 Lunch -> 14:00 Check-in -> 14:30 -> 19:00)
     const parseTimeToMinutes = (timeStr?: string, slot?: string): number => {
-      if (slot === 'overnight' || slot === 'stay') return 0;
+      if (slot === 'overnight') return 0; // Only main stay card gets score 0
+      if (slot === 'check_out') return 1200; // 12:00 PM
+      if (slot === 'check_in') return 1400; // 14:00 PM
+
+      if (timeStr && timeStr.includes(':')) {
+        const parts = timeStr.split(':').map(Number);
+        return (parts[0] || 0) * 100 + (parts[1] || 0);
+      }
       const slotWeights: Record<string, number> = {
-        overnight: 0,
         breakfast: 800,
         morning: 930,
         check_out: 1200,
@@ -562,14 +568,11 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
         dinner: 1900,
         evening: 2030,
       };
-      if (timeStr && timeStr.includes(':')) {
-        const parts = timeStr.split(':').map(Number);
-        return (parts[0] || 0) * 100 + (parts[1] || 0);
-      }
       return slotWeights[slot || ''] || 1000;
     };
 
     dayEvents.sort((a, b) => parseTimeToMinutes(a.start_time, a.slot) - parseTimeToMinutes(b.start_time, b.slot));
+
 
     selections.push({ service_id: bfastEv.id, day: dayNum, slot: 'breakfast' });
     selections.push({ service_id: morningEv.id, day: dayNum, slot: 'morning' });

@@ -139,9 +139,15 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
               {[...dayPlan.events]
                 .sort((a, b) => {
                   const getMinutes = (item: PlanServiceItem) => {
-                    if (item.slot === 'overnight' || (item.category as string) === 'stay') return 0;
+                    if (item.slot === 'overnight') return 0;
+                    if (item.slot === 'check_out') return 1200;
+                    if (item.slot === 'check_in') return 1400;
+                    
+                    if (item.start_time && item.start_time.includes(':')) {
+                      const parts = item.start_time.split(':').map(Number);
+                      return (parts[0] || 0) * 100 + (parts[1] || 0);
+                    }
                     const weights: Record<string, number> = {
-                      overnight: 0,
                       breakfast: 800,
                       morning: 930,
                       check_out: 1200,
@@ -151,10 +157,6 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       dinner: 1900,
                       evening: 2030,
                     };
-                    if (item.start_time && item.start_time.includes(':')) {
-                      const parts = item.start_time.split(':').map(Number);
-                      return (parts[0] || 0) * 100 + (parts[1] || 0);
-                    }
                     return weights[item.slot || ''] || 1000;
                   };
                   return getMinutes(a) - getMinutes(b);
@@ -196,14 +198,13 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                         : 'bg-[#0C0805] border-amber-950/40 hover:border-[#d4af37]/60'
                     }`}
                   >
-                    {/* Time & Slot Indicator + Click to inspect Activity */}
+                    {/* Time & Slot Indicator */}
                     <div
                       onClick={handleItemClick}
                       className="flex items-start sm:items-center gap-3 flex-1"
                     >
-                      {/* Time & Slot Indicator (Hide detailed 08:00 - 09:00 time range for Stay / Accommodation cards) */}
-                      {(event.category as string) === 'stay' || (event.category as string) === 'accommodation' || event.slot === 'overnight' ? (
-
+                      {/* Hide 08:00-09:00 clock only for the main Overnight stay card */}
+                      {event.slot === 'overnight' ? (
                         <div className="w-20 shrink-0 text-left">
                           <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-sky-600' : 'text-sky-400'}`}>
                             <Hotel className="w-3.5 h-3.5" />
@@ -215,15 +216,18 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                         </div>
                       ) : (
                         <div className="w-20 shrink-0 text-left">
-                          <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
+                          <span className={`text-xs font-bold flex items-center gap-1 font-sans ${
+                            event.slot === 'check_out' ? 'text-amber-500' : event.slot === 'check_in' ? 'text-emerald-500' : isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'
+                          }`}>
                             <Clock className="w-3.5 h-3.5" />
-                            {event.start_time || '08:00'}
+                            {event.start_time || (event.slot === 'check_out' ? '12:00' : event.slot === 'check_in' ? '14:00' : '08:00')}
                           </span>
                           <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
-                            đến {event.end_time || '09:00'}
+                            đến {event.end_time || (event.slot === 'check_out' ? '12:30' : event.slot === 'check_in' ? '14:30' : '09:00')}
                           </span>
                         </div>
                       )}
+
 
 
                       {/* Item Image Illustration Thumbnail with Hover Eye Icon */}
