@@ -129,6 +129,17 @@ class SavedPlanModel(Base):
     plan_data = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "destination_id": self.destination_id,
+            "total_budget": self.total_budget,
+            "people": self.people,
+            "num_days": self.num_days,
+            "plan_data": self.plan_data if isinstance(self.plan_data, dict) else json.loads(self.plan_data or "{}"),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
 
 class SlideModel(Base):
     __tablename__ = "slides"
@@ -144,6 +155,19 @@ class SlideModel(Base):
     features = Column(JSON, default=list)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "category": self.category,
+            "title": self.title,
+            "titleHighlight": self.titleHighlight,
+            "description": self.description,
+            "image": self.image,
+            "imageCaptionTitle": self.imageCaptionTitle or "",
+            "imageCaptionSub": self.imageCaptionSub or "",
+            "features": self.features if isinstance(self.features, list) else json.loads(self.features or "[]"),
+        }
+
 
 class SiteConfigModel(Base):
     __tablename__ = "site_config"
@@ -151,4 +175,11 @@ class SiteConfigModel(Base):
     key = Column(String(100), primary_key=True, index=True)
     value = Column(JSON, nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def as_dict(self):
+        return {
+            "key": self.key,
+            "value": self.value if isinstance(self.value, (dict, list)) else json.loads(self.value or "{}"),
+        }
+
 

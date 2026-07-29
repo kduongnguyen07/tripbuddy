@@ -9,27 +9,16 @@ from backend.models import DestinationModel, ServiceModel, SlideModel, SiteConfi
 
 
 def seed_database():
-    """Create tables and populate initial dataset from JSON files in ultra-fast bulk operations."""
-    # Ensure clean table creation
+    """Create missing tables and populate initial dataset from JSON files safely without dropping existing tables."""
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as e:
-        print(f"[INFO] Refreshing schema: {e}")
-        Base.metadata.drop_all(bind=engine)
-        Base.metadata.create_all(bind=engine)
+        print(f"[WARNING] Table creation check: {e}")
 
     db = SessionLocal()
 
     try:
-        # Check if destinations table needs recreation due to schema mismatch
-        try:
-            db.query(DestinationModel).first()
-        except Exception:
-            db.rollback()
-            print("[INFO] Recreating tables for updated model schema...")
-            Base.metadata.drop_all(bind=engine)
-            Base.metadata.create_all(bind=engine)
-            db = SessionLocal()
+
 
         # 1. Seed Destinations
         dest_path = Path(__file__).with_name("destinations.json")

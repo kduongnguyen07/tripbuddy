@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 import uuid
+import json
+from pathlib import Path
+from typing import Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -20,6 +23,10 @@ from backend.schemas import (
     SwapOptionsRequest,
 )
 from backend.seed_db import seed_database
+from backend.backup_db import export_database_json
+
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "tripbudget_admin_secret_2026")
+
 
 # Create DB tables automatically on server start
 Base.metadata.create_all(bind=engine)
@@ -176,9 +183,20 @@ def delete_db_service(service_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/db/seed")
-def reseed_db():
+def reseed_db(x_admin_secret: str | None = Header(None, alias="X-Admin-Secret")):
+    if x_admin_secret != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized: Valid X-Admin-Secret header required")
     seed_database()
-    return {"status": "success", "message": "Database reseeded successfully"}
+    return {"status": "success", "message": "Database seeded safely without dropping existing tables"}
+
+
+@app.post("/api/v1/db/backup")
+def backup_db(x_admin_secret: str | None = Header(None, alias="X-Admin-Secret")):
+    if x_admin_secret != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized: Valid X-Admin-Secret header required")
+    result = export_database_json()
+    return result
+
 
 
 @app.get("/api/v1/db/destinations")
