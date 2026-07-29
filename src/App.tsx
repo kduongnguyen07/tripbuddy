@@ -18,9 +18,25 @@ function MainContent() {
   const { destinations, theme } = useData();
   const isLight = theme === 'light';
 
-  // Navigation & Routing State ('home' vs 'result')
-  const [currentRoute, setCurrentRoute] = useState<'home' | 'result'>('home');
-  const [activePlan, setActivePlan] = useState<MaterializedPlan | null>(null);
+  // Navigation & Routing State ('home' vs 'result') with localStorage persistence for F5 reload
+  const [activePlan, setActivePlan] = useState<MaterializedPlan | null>(() => {
+    try {
+      const saved = localStorage.getItem('tripbudget_active_plan');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [currentRoute, setCurrentRoute] = useState<'home' | 'result'>(() => {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path.includes('/result') || hash === '#result') {
+      const saved = localStorage.getItem('tripbudget_active_plan');
+      return saved ? 'result' : 'home';
+    }
+    return 'home';
+  });
 
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(destinations[0] || null);
   const [detailDestination, setDetailDestination] = useState<Destination | null>(null);
@@ -63,10 +79,25 @@ function MainContent() {
       const hash = window.location.hash.toLowerCase();
 
       if (path.includes('/result') || hash === '#result') {
-        if (activePlan) {
+        let planObj = activePlan;
+        if (!planObj) {
+          try {
+            const saved = localStorage.getItem('tripbudget_active_plan');
+            if (saved) {
+              planObj = JSON.parse(saved);
+              setActivePlan(planObj);
+            }
+          } catch (e) {
+            console.error('Failed to parse saved plan on F5:', e);
+          }
+        }
+
+        if (planObj) {
           setCurrentRoute('result');
         } else {
+          // Graceful fallback to homepage if no plan data exists
           setCurrentRoute('home');
+          window.history.replaceState({}, '', '/');
         }
       } else if (path.includes('/muriel') || hash === '#muriel') {
         setIsLoginOpen(true);
@@ -93,6 +124,11 @@ function MainContent() {
   }, [activePlan]);
 
   const handlePlanGenerated = (plan: MaterializedPlan) => {
+    try {
+      localStorage.setItem('tripbudget_active_plan', JSON.stringify(plan));
+    } catch (e) {
+      console.warn('Failed to store active plan in localStorage:', e);
+    }
     setActivePlan(plan);
     setCurrentRoute('result');
     window.history.pushState({}, '', '/result');
@@ -100,11 +136,17 @@ function MainContent() {
   };
 
   const handleBackToHome = () => {
+    try {
+      localStorage.removeItem('tripbudget_active_plan');
+    } catch (e) {
+      console.warn('Failed to clear active plan from localStorage:', e);
+    }
     setCurrentRoute('home');
     setActivePlan(null);
     window.history.pushState({}, '', '/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   const handleSelectDestination = (dest: Destination) => {
     setSelectedDestination(dest);
