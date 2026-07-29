@@ -31,7 +31,9 @@ interface ItineraryTimelineProps {
 }
 
 const SLOT_LABELS: Record<string, { label: string; icon: any; color: string }> = {
-  overnight: { label: 'Lưu Trú Đêm', icon: Hotel, color: 'text-sky-400' },
+  overnight: { label: 'Lưu Trú Đêm', icon: Hotel, color: 'text-sky-400 font-extrabold' },
+  check_in: { label: 'Check-in Nhận Phòng (14:00)', icon: Hotel, color: 'text-emerald-400 font-black' },
+  check_out: { label: 'Check-out Trả Phòng (12:00)', icon: Hotel, color: 'text-amber-400 font-black' },
   breakfast: { label: 'Ăn Sáng', icon: Utensils, color: 'text-amber-400' },
   morning: { label: 'Tham Quan Sáng', icon: Ticket, color: 'text-emerald-400' },
   lunch: { label: 'Ăn Trưa', icon: Utensils, color: 'text-amber-400' },
@@ -39,6 +41,7 @@ const SLOT_LABELS: Record<string, { label: string; icon: any; color: string }> =
   dinner: { label: 'Ăn Tối', icon: Utensils, color: 'text-amber-400' },
   evening: { label: 'Trải Nghiệm Tối', icon: Ticket, color: 'text-indigo-400' },
 };
+
 
 export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
   plan,
@@ -174,15 +177,30 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       onClick={handleItemClick}
                       className="flex items-start sm:items-center gap-3 flex-1"
                     >
-                      <div className="w-20 shrink-0 text-left">
-                        <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
-                          <Clock className="w-3.5 h-3.5" />
-                          {event.start_time || '08:00'}
-                        </span>
-                        <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
-                          đến {event.end_time || '09:00'}
-                        </span>
-                      </div>
+                      {/* Time & Slot Indicator (Hide detailed 08:00 - 09:00 time range for Stay / Accommodation cards) */}
+                      {(event.category as string) === 'stay' || (event.category as string) === 'accommodation' || event.slot === 'overnight' ? (
+
+                        <div className="w-20 shrink-0 text-left">
+                          <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-sky-600' : 'text-sky-400'}`}>
+                            <Hotel className="w-3.5 h-3.5" />
+                            Lưu Trú
+                          </span>
+                          <span className={`text-[10px] font-bold block ${isLight ? 'text-sky-700' : 'text-sky-300'}`}>
+                            🌙 Cả ngày
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="w-20 shrink-0 text-left">
+                          <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            {event.start_time || '08:00'}
+                          </span>
+                          <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
+                            đến {event.end_time || '09:00'}
+                          </span>
+                        </div>
+                      )}
+
 
                       {/* Item Image Illustration Thumbnail with Hover Eye Icon */}
                       <div className={`relative w-16 h-16 rounded-2xl overflow-hidden border shrink-0 group-hover:scale-105 transition-transform duration-300 ${
@@ -252,22 +270,25 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Swap Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenSwapModal(selectionTarget, event);
-                          }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm border ${
-                            isLight
-                              ? 'bg-white hover:bg-[#B8860B] hover:text-white text-[#231F1D] border-[#E5DEC9]'
-                              : 'bg-slate-800 hover:bg-[#d4af37] hover:text-[#0C0805] text-slate-300 border-slate-700'
-                          }`}
-                          title="Đổi địa điểm khác"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Đổi</span>
-                        </button>
+                        {/* Swap Button (Hidden for fixed check-in/out procedures) */}
+                        {event.slot !== 'check_in' && event.slot !== 'check_out' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenSwapModal(selectionTarget, event);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-sm border ${
+                              isLight
+                                ? 'bg-white hover:bg-[#B8860B] hover:text-white text-[#231F1D] border-[#E5DEC9]'
+                                : 'bg-slate-800 hover:bg-[#d4af37] hover:text-[#0C0805] text-slate-300 border-slate-700'
+                            }`}
+                            title="Đổi địa điểm khác"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Đổi</span>
+                          </button>
+                        )}
+
 
                         {/* Affiliate Booking Button (if accommodation / partner link available) */}
                         {event.affiliate_url && (

@@ -403,6 +403,7 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
   const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
 
+
   if (foodItemsFormatted.length === 0) {
     foodItemsFormatted.push(formatDatasetService({
       id: `SRV_${targetCodes[0]}_FOOD_01`,
@@ -425,6 +426,67 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     }, req.people, nights));
   }
 
+  // 1. NON-REPEATING FOOD SELECTION PIPELINE (Requirement 1 Part 2)
+  const usedFoodIds = new Set<string>();
+
+  const getNextUniqueFood = (): PlanServiceItem => {
+    const unused = foodItemsFormatted.find((item) => !usedFoodIds.has(item.id));
+    if (unused) {
+      usedFoodIds.add(unused.id);
+      return unused;
+    }
+    // Fallback: If dataset runs out of unique choices, recycle least recently used
+    const recycledIndex = usedFoodIds.size % foodItemsFormatted.length;
+    return foodItemsFormatted[recycledIndex] || foodItemsFormatted[0];
+  };
+
+  // Helper constructors for Check-in (14:00) and Check-out (12:00) (Requirement 3 Part B)
+  const createCheckInEvent = (hotelItem: PlanServiceItem, day: number): PlanServiceItem => ({
+    id: `CHECK_IN_${hotelItem.id}_D${day}`,
+    destination_id: hotelItem.destination_id,
+    category: 'stay',
+    subtype: 'check_in',
+    name: `🏨 Check-in Nhận Phòng: ${hotelItem.name}`,
+    price_vnd: 0,
+    price_unit: 'per_room',
+    total_cost_vnd: 0,
+    display_cost_vnd: 0,
+    capacity: 2,
+    duration_hours: 0.5,
+    time_window: 'check_in',
+    rating: hotelItem.rating,
+    tags: ['check_in', 'nhan_phong'],
+    image_url: hotelItem.image_url,
+    affiliate_url: hotelItem.affiliate_url,
+    day: day,
+    slot: 'check_in',
+    start_time: '14:00',
+    end_time: '14:30',
+  });
+
+  const createCheckOutEvent = (hotelItem: PlanServiceItem, day: number): PlanServiceItem => ({
+    id: `CHECK_OUT_${hotelItem.id}_D${day}`,
+    destination_id: hotelItem.destination_id,
+    category: 'stay',
+    subtype: 'check_out',
+    name: `🔑 Check-out Trả Phòng: ${hotelItem.name}`,
+    price_vnd: 0,
+    price_unit: 'per_room',
+    total_cost_vnd: 0,
+    display_cost_vnd: 0,
+    capacity: 2,
+    duration_hours: 0.5,
+    time_window: 'check_out',
+    rating: hotelItem.rating,
+    tags: ['check_out', 'tra_phong'],
+    image_url: hotelItem.image_url,
+    affiliate_url: hotelItem.affiliate_url,
+    day: day,
+    slot: 'check_out',
+    start_time: '12:00',
+    end_time: '12:30',
+  });
+
   const selections: any[] = [];
   if (nights > 0) {
     selections.push({ service_id: lodgingService.id, day: 0, slot: 'overnight' });
@@ -436,9 +498,10 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const dailyItinerary = Array.from({ length: req.num_days }, (_, idx) => {
     const dayNum = idx + 1;
 
-    const bfast = foodItemsFormatted[idx % foodItemsFormatted.length] || foodItemsFormatted[0];
-    const lunch = foodItemsFormatted[(idx + 1) % foodItemsFormatted.length] || foodItemsFormatted[0];
-    const dinner = foodItemsFormatted[(idx + 2) % foodItemsFormatted.length] || foodItemsFormatted[0];
+    // Pick 3 UNIQUE food venues for Breakfast, Lunch, Dinner
+    const bfast = getNextUniqueFood();
+    const lunch = getNextUniqueFood();
+    const dinner = getNextUniqueFood();
 
     const morningAct = actItemsFormatted[idx % actItemsFormatted.length] || actItemsFormatted[0];
     const afternoonAct = actItemsFormatted[(idx + 1) % actItemsFormatted.length] || actItemsFormatted[0];
@@ -449,6 +512,20 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     const lunchEv = { ...lunch, day: dayNum, slot: 'lunch', start_time: '12:00', end_time: '13:30' };
     const afternoonEv = { ...afternoonAct, day: dayNum, slot: 'afternoon', start_time: '14:00', end_time: '17:00' };
     const dinnerEv = { ...dinner, day: dayNum, slot: 'dinner', start_time: '19:00', end_time: '20:30' };
+
+    const dayEvents: PlanServiceItem[] = [dayStay];
+
+    // Day 1: Add Check-in (14:00) procedure
+    if (dayNum === 1 && nights > 0) {
+      dayEvents.push(createCheckInEvent(lodgingService, dayNum));
+    }
+
+    dayEvents.push(bfastEv, morningEv, lunchEv, afternoonEv, dinnerEv);
+
+    // Final Day: Add Check-out (12:00) procedure
+    if (dayNum === req.num_days && nights > 0) {
+      dayEvents.push(createCheckOutEvent(lodgingService, dayNum));
+    }
 
     selections.push({ service_id: bfastEv.id, day: dayNum, slot: 'breakfast' });
     selections.push({ service_id: morningEv.id, day: dayNum, slot: 'morning' });
@@ -464,7 +541,7 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
     return {
       day: dayNum,
-      events: [dayStay, bfastEv, morningEv, lunchEv, afternoonEv, dinnerEv],
+      events: dayEvents,
       costs: {
         stay: Math.round(stayCost / req.num_days),
         food: dayFoodTotal,
@@ -518,10 +595,38 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
   const targetCodes = (DEST_CODE_MAP[destId] || [destId, destId.toUpperCase()]).map((c) => c.toUpperCase());
   
   const services = await getServicesFromDb(destId);
-  const candidates = services.filter((item) => 
-    targetCodes.includes((item.destination_id || '').toUpperCase()) && item.id !== req.target.service_id
-  );
-  const formatted = candidates.slice(0, 5).map((c) => formatDatasetService(c, req.plan_state.people, req.plan_state.num_days - 1));
+
+  // Category Filtering for Swap Candidates (Requirement 2)
+  const targetId = req.target.service_id;
+  const targetSlot = (req.target.slot || '').toLowerCase();
+  const targetService = services.find((s) => s.id === targetId);
+
+  let targetCategory: string = targetService?.category || '';
+  if (!targetCategory) {
+    if (['breakfast', 'lunch', 'dinner', 'food'].includes(targetSlot)) {
+      targetCategory = 'food';
+    } else if (['overnight', 'stay', 'accommodation', 'hotel', 'check_in', 'check_out'].includes(targetSlot)) {
+      targetCategory = 'accommodation';
+    } else {
+      targetCategory = 'activity';
+    }
+  }
+
+  const candidates = services.filter((item) => {
+    if (item.id === targetId) return false;
+    const destMatch = targetCodes.includes((item.destination_id || '').toUpperCase());
+    if (!destMatch) return false;
+
+    if (targetCategory === 'food') {
+      return item.category === 'food';
+    } else if (targetCategory === 'accommodation' || targetCategory === 'stay') {
+      return item.category === 'accommodation' || item.category === 'stay';
+    } else {
+      return item.category === 'activity' || item.category === 'activities';
+    }
+  });
+
+  const formatted = candidates.slice(0, 8).map((c) => formatDatasetService(c, req.plan_state.people, req.plan_state.num_days - 1));
 
   return {
     status: 'success',
@@ -530,6 +635,7 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
     data_version: 'v3.0_neon_database',
   };
 }
+
 
 export async function applySwapDb(req: ApplySwapRequest): Promise<MaterializedPlan> {
   return generatePlanDb({

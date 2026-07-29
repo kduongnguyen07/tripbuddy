@@ -313,6 +313,16 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       return;
     }
 
+    if (preferences.food_styles.length < 3) {
+      if (step === 1) {
+        setStep(2);
+      }
+      setValidationError(
+        `Vui lòng chọn tối thiểu 3 sở thích ẩm thực ở Bước 2 (Hiện tại đã chọn: ${preferences.food_styles.length}/3) để hệ thống gợi ý món ăn đa dạng nhất!`
+      );
+      return;
+    }
+
     setValidationError(null);
     onGeneratePlan({
       destination_id: destinationId,
@@ -323,6 +333,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       preferences,
     });
   };
+
 
   return (
     <div className="space-y-8 font-sans">
@@ -1072,9 +1083,21 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
           {/* Food Styles Multiple Choice */}
           <div className="space-y-3">
-            <span className="text-xs font-extrabold text-[#d4af37] block uppercase tracking-wider flex items-center gap-2">
-              <Utensils className="w-4 h-4" /> Phong Cách Ẩm Thực (Food & Dining Style):
-            </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-extrabold text-[#d4af37] block uppercase tracking-wider flex items-center gap-2">
+                <Utensils className="w-4 h-4" /> Phong Cách Ẩm Thực (Food & Dining Style):
+              </span>
+              {preferences.food_styles.length < 3 ? (
+                <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/20 text-amber-600 border border-amber-500/40 flex items-center gap-1">
+                  ⚠️ Bắt buộc chọn tối thiểu 3 sở thích ({preferences.food_styles.length}/3)
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-600 border border-emerald-500/40 flex items-center gap-1">
+                  ✅ Đã chọn {preferences.food_styles.length} sở thích ẩm thực
+                </span>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {FOOD_STYLES.map((style) => {
                 const selected = preferences.food_styles.includes(style.id);
