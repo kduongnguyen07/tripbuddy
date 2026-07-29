@@ -191,6 +191,7 @@ export async function getServicesFromDb(destinationId?: string): Promise<any[]> 
         tags: safeJson(r.tags, []),
         image_url: r.image_url || '',
         booking_url: r.booking_url || '',
+        meal_type: r.meal_type || 'breakfast,lunch,dinner',
       }));
     }
   } catch (err) {
@@ -220,11 +221,12 @@ export async function addServiceDb(srv: any): Promise<any> {
   const tags = JSON.stringify(Array.isArray(srv.tags) ? srv.tags : []);
   const img = srv.image_url || '';
   const booking = srv.booking_url || srv.affiliate_url || '';
+  const mealType = srv.meal_type || 'breakfast,lunch,dinner';
 
   try {
     await sql`
-      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url)
-      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking})
+      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url, meal_type)
+      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking}, ${mealType})
       ON CONFLICT (id) DO UPDATE SET
         destination_id = EXCLUDED.destination_id,
         category = EXCLUDED.category,
@@ -235,9 +237,11 @@ export async function addServiceDb(srv: any): Promise<any> {
         duration_mins = EXCLUDED.duration_mins,
         tags = EXCLUDED.tags,
         image_url = EXCLUDED.image_url,
-        booking_url = EXCLUDED.booking_url
+        booking_url = EXCLUDED.booking_url,
+        meal_type = EXCLUDED.meal_type
     `;
   } catch (err) {
+
     console.error('Error inserting service into Neon DB:', err);
   }
 
@@ -353,11 +357,13 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
     tags: Array.isArray(item.tags) ? item.tags : [],
     image_url: getServiceIllustrationImage(item),
     affiliate_url: item.booking_url || '',
+    meal_type: item.meal_type || 'breakfast,lunch,dinner',
     total_cost_vnd: totalCost,
     day: 1,
     slot: 'morning',
   };
 }
+
 
 
 export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
@@ -426,16 +432,30 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     }, req.people, nights));
   }
 
-  // 1. NON-REPEATING FOOD SELECTION PIPELINE (Requirement 1 Part 2)
+  // 1. NON-REPEATING & MEAL-TYPE MATCHED FOOD SELECTION PIPELINE
   const usedFoodIds = new Set<string>();
 
-  const getNextUniqueFood = (): PlanServiceItem => {
-    const unused = foodItemsFormatted.find((item) => !usedFoodIds.has(item.id));
-    if (unused) {
-      usedFoodIds.add(unused.id);
-      return unused;
+  const getNextUniqueFood = (slotType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'late_night'): PlanServiceItem => {
+    // 1. Match unused item matching slotType (breakfast, lunch, dinner, snack, late_night)
+    const matchingUnused = foodItemsFormatted.find((item) => {
+      if (usedFoodIds.has(item.id)) return false;
+      const meals = (item.meal_type || 'breakfast,lunch,dinner').toLowerCase();
+      return meals.includes(slotType);
+    });
+
+    if (matchingUnused) {
+      usedFoodIds.add(matchingUnused.id);
+      return matchingUnused;
     }
-    // Fallback: If dataset runs out of unique choices, recycle least recently used
+
+    // 2. Any unused food item
+    const anyUnused = foodItemsFormatted.find((item) => !usedFoodIds.has(item.id));
+    if (anyUnused) {
+      usedFoodIds.add(anyUnused.id);
+      return anyUnused;
+    }
+
+    // 3. Fallback recycle
     const recycledIndex = usedFoodIds.size % foodItemsFormatted.length;
     return foodItemsFormatted[recycledIndex] || foodItemsFormatted[0];
   };
@@ -498,10 +518,11 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const dailyItinerary = Array.from({ length: req.num_days }, (_, idx) => {
     const dayNum = idx + 1;
 
-    // Pick 3 UNIQUE food venues for Breakfast, Lunch, Dinner
-    const bfast = getNextUniqueFood();
-    const lunch = getNextUniqueFood();
-    const dinner = getNextUniqueFood();
+    // Pick 3 UNIQUE food venues matching Breakfast, Lunch, Dinner
+    const bfast = getNextUniqueFood('breakfast');
+    const lunch = getNextUniqueFood('lunch');
+    const dinner = getNextUniqueFood('dinner');
+
 
     const morningAct = actItemsFormatted[idx % actItemsFormatted.length] || actItemsFormatted[0];
     const afternoonAct = actItemsFormatted[(idx + 1) % actItemsFormatted.length] || actItemsFormatted[0];

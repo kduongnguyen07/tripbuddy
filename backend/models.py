@@ -97,6 +97,7 @@ class ServiceModel(Base):
     tags = Column(JSON, default=list)
     image_url = Column(Text, nullable=True)
     booking_url = Column(Text, nullable=True)
+    meal_type = Column(String(100), default="breakfast,lunch,dinner")
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def as_dict(self):
@@ -112,7 +113,9 @@ class ServiceModel(Base):
             "tags": self.tags if isinstance(self.tags, list) else json.loads(self.tags or "[]"),
             "image_url": self.image_url or "",
             "booking_url": self.booking_url or "",
+            "meal_type": self.meal_type or "breakfast,lunch,dinner",
         }
+
 
 
 class SavedPlanModel(Base):

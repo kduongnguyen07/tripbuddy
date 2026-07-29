@@ -77,7 +77,9 @@ export interface PlanServiceItem {
   tags: string[];
   image_url: string;
   affiliate_url?: string | null;
+  meal_type?: string;
   source?: string;
+
   updated_at?: string;
   day?: number;
   slot?: string;

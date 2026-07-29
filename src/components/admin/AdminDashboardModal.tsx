@@ -4,9 +4,10 @@ import {
   X, LayoutDashboard, MapPin, Sparkles, Sliders, Download, Upload, RotateCcw, 
   Plus, Trash2, Edit3, Save, Check, Image as ImageIcon, BookOpen, DollarSign,
   Cloud, CloudUpload, CloudDownload, RefreshCw, Search, Bell, Calendar,
-  TrendingUp, User, ChevronRight, CheckCircle2, ShieldCheck, Flame,
+  TrendingUp, User, ChevronRight, CheckCircle2, ShieldCheck, Flame, Utensils,
   Globe, Monitor, Tablet, Smartphone, ExternalLink, Eye, Compass, List, Grid, Star
 } from 'lucide-react';
+
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
@@ -988,6 +989,56 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                         </div>
                       </div>
 
+                      {/* Meal Types Selector for Food Category */}
+                      {editingService.category === 'food' && (
+                        <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-2">
+                          <label className="block text-[11px] font-extrabold text-amber-900 uppercase flex items-center gap-1.5">
+                            <Utensils className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Bữa Ăn Phù Hợp (Ăn Sáng, Ăn Trưa, Ăn Tối, Ăn Vặt, Ăn Đêm):</span>
+                          </label>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            {[
+                              { id: 'breakfast', label: '🌅 Ăn Sáng' },
+                              { id: 'lunch', label: '☀️ Ăn Trưa' },
+                              { id: 'dinner', label: '🌙 Ăn Tối' },
+                              { id: 'snack', label: '🍢 Ăn Vặt' },
+                              { id: 'late_night', label: '🌌 Ăn Đêm' },
+                            ].map((slot) => {
+                              const currentMeals = (editingService.meal_type || 'breakfast,lunch,dinner').split(',').map((s: string) => s.trim());
+                              const isChecked = currentMeals.includes(slot.id);
+
+                              const toggleMealSlot = () => {
+                                let updated: string[];
+                                if (isChecked) {
+                                  updated = currentMeals.filter((m: string) => m !== slot.id);
+                                } else {
+                                  updated = [...currentMeals, slot.id];
+                                }
+                                setEditingService({ ...editingService, meal_type: updated.join(',') });
+                              };
+
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  onClick={toggleMealSlot}
+                                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 text-xs ${
+                                    isChecked
+                                      ? 'bg-amber-500 text-white shadow-sm font-extrabold'
+                                      : 'bg-white text-slate-700 hover:bg-amber-100 border border-slate-200'
+                                  }`}
+                                >
+                                  <span>{slot.label}</span>
+                                  {isChecked && <Check className="w-3 h-3 text-white" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+
                       <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-100">
                         <button
                           type="button"
@@ -1192,6 +1243,25 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
                             <td className="p-3">
                               <span className="font-bold text-slate-900 text-xs block">{srv.name}</span>
+                              {srv.category === 'food' && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {((srv.meal_type || 'breakfast,lunch,dinner').split(',')).map((m: string) => {
+                                    const slotMap: Record<string, string> = {
+                                      breakfast: '🌅 Sáng',
+                                      lunch: '☀️ Trưa',
+                                      dinner: '🌙 Tối',
+                                      snack: '🍢 Ăn vặt',
+                                      late_night: '🌌 Ăn đêm',
+                                    };
+                                    const label = slotMap[m.trim()] || m;
+                                    return (
+                                      <span key={m} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100/90 text-amber-900 border border-amber-300">
+                                        {label}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
                               {srv.booking_url && (
                                 <a
                                   href={srv.booking_url}
@@ -1203,6 +1273,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                                 </a>
                               )}
                             </td>
+
                             <td className="p-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white font-extrabold text-[10px]">
