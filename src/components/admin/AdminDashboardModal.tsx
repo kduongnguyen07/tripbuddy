@@ -1418,6 +1418,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                         />
                       </div>
 
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Mô Tả Giới Thiệu Điểm Đến (Description)</label>
+                        <textarea
+                          rows={3}
+                          value={editingDest.description || ''}
+                          onChange={(e) => setEditingDest({ ...editingDest, description: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-lime-500 font-sans"
+                          placeholder="Mô tả giới thiệu chi tiết về điểm đến..."
+                        />
+                      </div>
+
                       {/* Scores Section */}
                       <div className="space-y-2">
                         <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Hệ Số Chất Lượng & Chi Phí Dự Toán Ban Đầu</h5>

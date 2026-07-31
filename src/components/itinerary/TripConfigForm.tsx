@@ -44,7 +44,7 @@ interface TripConfigFormProps {
 
 // Detailed Destination Meta Preview Data
 const DESTINATION_META: Record<
-  DestinationId,
+  string,
   {
     name: string;
     region: string;
@@ -58,7 +58,7 @@ const DESTINATION_META: Record<
   }
 > = {
   'ha-noi': {
-    name: 'Hà Nội',
+    name: 'Hà Nội - Thủ Đô Ngàn Năm Văn Hiến',
     region: 'Miền Bắc',
     typeLabel: 'Thành Phố Văn Hóa',
     heroImage: 'https://images.unsplash.com/photo-1509030450996-93f2e3d84074?auto=format&fit=crop&w=1200&q=80',
@@ -69,44 +69,44 @@ const DESTINATION_META: Record<
     rating: 4.9,
   },
   hue: {
-    name: 'Huế',
+    name: 'Huế - Cố Đô Di Sản Triều Nguyễn & Sông Hương',
     region: 'Miền Trung',
     typeLabel: 'Cố Đô Di Sản',
     heroImage: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1200&q=80',
-    description: 'Cố đô di sản tĩnh lặng với Quần thể di tích Đại Nội, Lăng tẩm các vua triều Nguyễn và dòng Sông Hương thơ mộng.',
+    description: 'Cố đô trầm mặc với Hoàng Thành, lăng tẩm triều Nguyễn, dòng Hương thơ mộng và nét văn hóa cung đình đặc sắc.',
     tags: ['Di Sản', 'Lịch Sử', 'Cố Đô', 'Sông Hương', 'Ẩm Thực Cung Đình'],
     highlights: ['Đại Nội Cố Đô Huế', 'Lăng Khải Định & Tự Đức', 'Chùa Thiên Mụ & Sông Hương', 'Bún bò Huế & Bánh nậm lọc'],
     minBudgetPerDay: '750.000 đ/người',
     rating: 4.8,
   },
   'da-nang': {
-    name: 'Đà Nẵng',
+    name: 'Đà Nẵng - Cầu Vàng Bà Nà & Linh Ứng Tự',
     region: 'Miền Trung',
     typeLabel: 'Thành Phố Biển Năng Động',
     heroImage: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80',
-    description: 'Thành phố biển đáng sống hàng đầu Việt Nam với bãi biển Mỹ Khê top thế giới, Cầu Rồng và Sun World Bà Nà Hills.',
+    description: 'Thành phố biển năng động nổi bật với Cầu Vàng, Bà Nà Hills, chùa Linh Ứng và những bãi biển tuyệt đẹp.',
     tags: ['Biển', 'Thành Phố', 'Hiện Đại', 'Nghỉ Dưỡng', 'Bà Nà Hills'],
     highlights: ['Bãi biển Mỹ Khê', 'Sun World Ba Na Hills (Cầu Vàng)', 'Bán đảo Sơn Trà & Chùa Linh Ứng', 'Cầu Rồng phun lửa'],
     minBudgetPerDay: '950.000 đ/người',
     rating: 4.9,
   },
   'da-lat': {
-    name: 'Đà Lạt',
+    name: 'Đà Lạt - Thành Phố Ngàn Hoa & Sương Mù',
     region: 'Tây Nguyên',
     typeLabel: 'Cao Nguyên Mộng Mơ',
     heroImage: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1200&q=80',
-    description: 'Thành phố ngàn hoa trên cao nguyên với khí hậu se lạnh, rừng thông thơ mộng và hàng trăm quán cà phê check-in.',
+    description: 'Thành phố ngàn hoa quyến rũ với khí hậu mát lành, rừng thông, hồ thơ mộng và những đồi hoa rực rỡ.',
     tags: ['Núi Đồi', 'Thiên Nhiên', 'Khí Hậu Mát Mẻ', 'Mộng Mơ', 'Check-in'],
     highlights: ['Hồ Tuyền Lâm & Hồ Xuân Hương', 'Thác Datanla & Đỉnh Langbiang', 'Quảng trường Lâm Viên', 'Cà phê view đồi thông'],
     minBudgetPerDay: '850.000 đ/người',
     rating: 4.9,
   },
   'phu-quoc': {
-    name: 'Phú Quốc',
+    name: 'Phú Quốc - Thiên Đường Biển Ngọc',
     region: 'Miền Nam',
     typeLabel: 'Đảo Ngọc Thiên Đường',
     heroImage: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80',
-    description: 'Đảo ngọc nghỉ dưỡng hàng đầu Châu Á với đại dương xanh ngọc bích, bãi biển Bãi Sao thơ mộng và hoàng hôn tuyệt đẹp.',
+    description: 'Thiên đường biển ngọc với bãi cát trắng, làn nước trong xanh, hoàng hôn tuyệt đẹp và hải sản tươi ngon.',
     tags: ['Đảo', 'Biển', 'Sang Trọng', 'Nghỉ Dưỡng', 'Hoàng Hôn'],
     highlights: ['Bãi Sao & Bãi Khem', 'Cáp treo Hòn Thơm vượt biển', 'Grand World & VinWonders', 'Hoàng hôn Sunset Sanato'],
     minBudgetPerDay: '1.200.000 đ/người',
@@ -265,7 +265,17 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     isSameDest(destinationId, d.id) || isSameDest(destinationId, d.code || d.id)
   );
 
-  const staticMeta = DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
+  const getMetaKey = (id: string): string => {
+    const code = (id || '').toUpperCase();
+    if (code === 'PQC' || code === 'PHU-QUOC' || code.includes('PHÚ QUỐC')) return 'phu-quoc';
+    if (code === 'DAD' || code === 'DA-NANG' || code.includes('ĐÀ NẴNG')) return 'da-nang';
+    if (code === 'DLD' || code === 'DA-LAT' || code.includes('ĐÀ LẠT')) return 'da-lat';
+    if (code === 'HUE' || code.includes('HUẾ')) return 'hue';
+    return 'ha-noi';
+  };
+
+  const metaKey = getMetaKey(destinationId);
+  const staticMeta = DESTINATION_META[metaKey] || DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
 
   const currentMeta = {
     name: dbDest?.name || staticMeta.name,
