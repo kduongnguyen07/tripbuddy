@@ -29,10 +29,20 @@ function waitForImage(image: HTMLImageElement): Promise<void> {
 async function waitForPdfAssets(root: HTMLElement): Promise<void> {
   if ('fonts' in document) {
     await document.fonts.ready;
+    await Promise.all([
+      document.fonts.load('400 12px "Segoe UI"'),
+      document.fonts.load('700 12px "Segoe UI"'),
+    ]);
   }
 
   await Promise.all(Array.from(root.querySelectorAll('img')).map(waitForImage));
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+function assertPageFits(page: HTMLElement, pageNumber: number): void {
+  if (page.scrollWidth - page.clientWidth > 1 || page.scrollHeight - page.clientHeight > 1) {
+    throw new Error(`Nội dung trang ${pageNumber} vượt khổ A4. Vui lòng thử lại.`);
+  }
 }
 
 function safeFileSegment(value: string): string {
@@ -75,6 +85,7 @@ export const InfographicExporter: React.FC<ExporterProps> = ({ plan }) => {
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       for (let index = 0; index < pages.length; index += 1) {
+        assertPageFits(pages[index], index + 1);
         const canvas = await html2canvas(pages[index], {
           scale: 2,
           useCORS: true,
@@ -83,6 +94,7 @@ export const InfographicExporter: React.FC<ExporterProps> = ({ plan }) => {
           logging: false,
           windowWidth: pages[index].scrollWidth,
           windowHeight: pages[index].scrollHeight,
+          imageTimeout: 5000,
         });
 
         if (canvas.width === 0 || canvas.height === 0) throw new Error(`Không thể tạo trang ${index + 1}.`);
