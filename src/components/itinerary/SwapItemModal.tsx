@@ -162,7 +162,7 @@ export const SwapItemModal: React.FC<SwapItemModalProps> = ({
           {/* Candidate List */}
           <div className={`p-6 space-y-4 overflow-y-auto flex-1 ${isLight ? 'bg-white' : 'bg-[#14100c]'}`}>
             <span className={`text-xs font-bold uppercase tracking-widest block ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-              Gợi ý ~5 địa điểm thay thế cùng ngân sách:
+              Gợi ý các địa điểm thay thế phù hợp:
             </span>
 
             {loading ? (

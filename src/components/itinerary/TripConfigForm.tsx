@@ -9,6 +9,7 @@ import {
   MapPin,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   Hotel,
   Utensils,
   Ticket,
@@ -187,9 +188,11 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   // Preferences
   const [preferences, setPreferences] = useState<Preferences>({
     lodging_styles: ['hotel', 'resort'],
-    food_styles: ['local_specialty', 'seafood'],
+    food_styles: ['local_specialty', 'seafood', 'street_food'],
     activity_styles: ['culture', 'nature'],
   });
+
+  const isFoodStylesInsufficient = preferences.food_styles.length < 3;
 
   // Recommended Destinations
   const [recommendations, setRecommendations] = useState<DestinationRecommendation[]>([]);
@@ -207,7 +210,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       num_days: numDays,
       priorities,
       preferences,
-      limit: 4,
+      limit: 3,
     })
       .then((data) => {
         if (isMounted) {
@@ -313,12 +316,12 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       return;
     }
 
-    if (preferences.food_styles.length < 3) {
+    if (isFoodStylesInsufficient) {
       if (step === 1) {
         setStep(2);
       }
       setValidationError(
-        `Vui lòng chọn tối thiểu 3 sở thích ẩm thực ở Bước 2 (Hiện tại đã chọn: ${preferences.food_styles.length}/3) để hệ thống gợi ý món ăn đa dạng nhất!`
+        'Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực'
       );
       return;
     }
@@ -460,7 +463,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     isLight ? 'text-[#665E55]' : 'text-slate-400'
                   }`}
                 >
-                  Khi bật: Hệ thống tự động đề xuất 3–5 địa điểm lý tưởng theo mức ngân sách & số ngày của bạn
+                  Khi bật: Hệ thống tự động đề xuất 2–3 địa điểm lý tưởng theo mức ngân sách & số ngày của bạn
                 </span>
               </div>
             </div>
@@ -748,7 +751,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setPeople(Math.max(1, people - 1))}
+                  onClick={() => setPeople(Math.max(1, (Number(people) || 1) - 1))}
                   className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
                     isLight
                       ? 'bg-[#FAF7F2] hover:bg-sky-500 hover:text-white text-sky-600 border-[#E5DEC9]'
@@ -763,9 +766,23 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   min="1"
                   max="20"
                   value={people}
-                  onChange={(e) =>
-                    setPeople(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setPeople('' as any);
+                      return;
+                    }
+                    const num = parseInt(val, 10);
+                    if (isNaN(num)) return;
+                    if (num > 20) setPeople(20);
+                    else if (num < 1) setPeople(1);
+                    else setPeople(num);
+                  }}
+                  onBlur={() => {
+                    const current = Number(people);
+                    if (!current || isNaN(current) || current < 1) setPeople(1);
+                    else if (current > 20) setPeople(20);
+                  }}
                   className={`w-full py-3 rounded-2xl border text-center text-base font-extrabold font-serif focus:outline-none focus:ring-2 transition-all ${
                     isLight
                       ? 'bg-[#FAF7F2] border-[#E5DEC9] text-[#231F1D] focus:ring-sky-500'
@@ -775,7 +792,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setPeople(Math.min(20, people + 1))}
+                  onClick={() => setPeople(Math.min(20, (Number(people) || 1) + 1))}
                   className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
                     isLight
                       ? 'bg-[#FAF7F2] hover:bg-sky-500 hover:text-white text-sky-600 border-[#E5DEC9]'
@@ -807,7 +824,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setNumDays(Math.max(1, numDays - 1))}
+                  onClick={() => setNumDays(Math.max(1, (Number(numDays) || 1) - 1))}
                   className={`w-11 h-11 rounded-2xl font-black flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
                     isLight
                       ? 'bg-[#FAF7F2] hover:bg-emerald-500 hover:text-white text-emerald-600 border-[#E5DEC9]'
@@ -822,9 +839,23 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                   min="1"
                   max="7"
                   value={numDays}
-                  onChange={(e) =>
-                    setNumDays(Math.max(1, Math.min(7, Number(e.target.value) || 1)))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setNumDays('' as any);
+                      return;
+                    }
+                    const num = parseInt(val, 10);
+                    if (isNaN(num)) return;
+                    if (num > 7) setNumDays(7);
+                    else if (num < 1) setNumDays(1);
+                    else setNumDays(num);
+                  }}
+                  onBlur={() => {
+                    const current = Number(numDays);
+                    if (!current || isNaN(current) || current < 1) setNumDays(1);
+                    else if (current > 7) setNumDays(7);
+                  }}
                   className={`w-full py-3 rounded-2xl border text-center text-base font-extrabold font-serif focus:outline-none focus:ring-2 transition-all ${
                     isLight
                       ? 'bg-[#FAF7F2] border-[#E5DEC9] text-[#231F1D] focus:ring-emerald-500'
@@ -969,7 +1000,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
           {/* Action Row Step 1 */}
           <div
-            className={`flex justify-between items-center pt-4 border-t ${
+            className={`flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t ${
               isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
             }`}
           >
@@ -986,28 +1017,41 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               <ArrowRight className="w-4 h-4 text-[#d4af37]" />
             </button>
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className={`py-4 px-8 font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer hover:scale-105 active:scale-95 ${
-                isLight
-                  ? 'bg-[#B8860B] hover:bg-[#9E7B1A] text-white'
-                  : 'bg-[#d4af37] hover:bg-amber-400 text-[#0C0805]'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin w-4 h-4 border-2 border-[#0C0805] border-t-transparent rounded-full" />
-                  <span>Đang Tối Ưu Lịch Trình...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 fill-current" />
-                  <span>Tạo Lịch Trình Ngay</span>
-                </>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {isFoodStylesInsufficient && (
+                <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-500/15 text-red-500 border border-red-500/30 flex items-center gap-1.5 animate-pulse">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực</span>
+                </span>
               )}
-            </button>
+
+              <div title={isFoodStylesInsufficient ? 'Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực' : ''}>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading || isFoodStylesInsufficient}
+                  className={`py-4 px-8 font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-2.5 ${
+                    isFoodStylesInsufficient
+                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                      : isLight
+                      ? 'bg-[#B8860B] hover:bg-[#9E7B1A] text-white cursor-pointer hover:scale-105 active:scale-95'
+                      : 'bg-[#d4af37] hover:bg-amber-400 text-[#0C0805] cursor-pointer hover:scale-105 active:scale-95'
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-[#0C0805] border-t-transparent rounded-full" />
+                      <span>Đang Tối Ưu Lịch Trình...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 fill-current" />
+                      <span>Tạo Lịch Trình Ngay</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1036,10 +1080,14 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className={`text-xs font-black flex items-center gap-1.5 cursor-pointer px-4 py-2 rounded-xl border transition-all ${
-                isLight
-                  ? 'bg-amber-100/60 border-amber-300 text-[#B8860B] hover:bg-amber-200'
-                  : 'bg-amber-950/30 border-amber-950/60 text-amber-400 hover:bg-amber-900/40'
+              disabled={isFoodStylesInsufficient}
+              title={isFoodStylesInsufficient ? 'Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực' : ''}
+              className={`text-xs font-black flex items-center gap-1.5 px-4 py-2 rounded-xl border transition-all ${
+                isFoodStylesInsufficient
+                  ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                  : isLight
+                  ? 'bg-amber-100/60 border-amber-300 text-[#B8860B] hover:bg-amber-200 cursor-pointer'
+                  : 'bg-amber-950/30 border-amber-950/60 text-amber-400 hover:bg-amber-900/40 cursor-pointer'
               }`}
             >
               <SkipForward className="w-4 h-4" /> Bỏ qua & Tạo Lịch Trình Ngay
@@ -1165,7 +1213,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
 
           {/* Action Row Step 2 */}
           <div
-            className={`flex justify-between items-center pt-6 border-t ${
+            className={`flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t ${
               isLight ? 'border-[#E5DEC9]' : 'border-amber-950/40'
             }`}
           >
@@ -1182,28 +1230,41 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               <span>Quay Lại Bước 1</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className={`py-4 px-8 font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer hover:scale-105 active:scale-95 ${
-                isLight
-                  ? 'bg-[#B8860B] hover:bg-[#9E7B1A] text-white'
-                  : 'bg-[#d4af37] hover:bg-amber-400 text-[#0C0805]'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin w-4 h-4 border-2 border-[#0C0805] border-t-transparent rounded-full" />
-                  <span>Đang Tối Ưu Lịch Trình...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 fill-current" />
-                  <span>Tạo Lịch Trình Ngay</span>
-                </>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {isFoodStylesInsufficient && (
+                <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-500/15 text-red-500 border border-red-500/30 flex items-center gap-1.5 animate-pulse">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực</span>
+                </span>
               )}
-            </button>
+
+              <div title={isFoodStylesInsufficient ? 'Bạn cần chọn tối thiểu 3 sở thích ở mục Phong cách ẩm thực' : ''}>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading || isFoodStylesInsufficient}
+                  className={`py-4 px-8 font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-2.5 ${
+                    isFoodStylesInsufficient
+                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                      : isLight
+                      ? 'bg-[#B8860B] hover:bg-[#9E7B1A] text-white cursor-pointer hover:scale-105 active:scale-95'
+                      : 'bg-[#d4af37] hover:bg-amber-400 text-[#0C0805] cursor-pointer hover:scale-105 active:scale-95'
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-[#0C0805] border-t-transparent rounded-full" />
+                      <span>Đang Tối Ưu Lịch Trình...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 fill-current" />
+                      <span>Tạo Lịch Trình Ngay</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

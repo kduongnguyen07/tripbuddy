@@ -12,6 +12,7 @@ import {
   SwapOptionsRequest,
   ApplySwapRequest,
   MaterializedPlan,
+  PlanState,
   DestinationRecommendation,
   SwapOptionsResponse,
   SimilarDestinationResult,
@@ -270,7 +271,7 @@ export async function recommendDestinationsDb(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
   const dests = await getDestinationsFromDb();
-  const limit = req.limit || 4;
+  const limit = req.limit || 3;
 
   return dests.slice(0, limit).map((d) => {
     const minCost = Math.round((d.minimum_two_day_cost_vnd || 1500000) * (req.num_days / 2) * Math.max(1, req.people * 0.7));
@@ -366,101 +367,42 @@ function formatDatasetService(item: any, people: number, nights: number): PlanSe
 
 
 
-export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
+export async function materializePlanFromSelectionsDb(planState: PlanState): Promise<MaterializedPlan> {
   const destList = await getDestinationsFromDb();
-  const reqDestId = req.destination_id || 'HAN';
-  
+  const reqDestId = planState.destination_id || 'HAN';
   const targetCodes = (DEST_CODE_MAP[reqDestId] || [reqDestId, reqDestId.toUpperCase()]).map(c => c.toUpperCase());
-  
+
   const dest = destList.find((d) => 
     d.id.toLowerCase() === reqDestId.toLowerCase() ||
     (d.code && targetCodes.includes(d.code.toUpperCase()))
   ) || destList.find((d) => (d.code || d.id).toUpperCase() === 'HAN') || destList[0];
 
-
   const rawServices = await getServicesFromDb(reqDestId);
-  
-  // STRICT FILTERING GUARANTEE: Never allow services from another city to bleed into this plan!
   const destServices = rawServices.filter((s) => targetCodes.includes((s.destination_id || '').toUpperCase()));
 
-  const stays = destServices.filter((i) => i.category === 'accommodation' || i.category === 'stay');
-  const foods = destServices.filter((i) => i.category === 'food');
-  const acts = destServices.filter((i) => i.category === 'activity');
+  const nights = Math.max(0, planState.num_days - 1);
 
-  const nights = Math.max(0, req.num_days - 1);
+  // Find stay service from selections
+  const staySel = planState.selections?.find((s) => s.slot === 'overnight' || s.day === 0);
+  let rawStay = (staySel?.service_id ? rawServices.find((s) => s.id === staySel.service_id) : null) ||
+    destServices.find((i) => i.category === 'accommodation' || i.category === 'stay');
 
-  const rawStay = stays.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0] || {
-    id: `SRV_${targetCodes[0]}_001`,
-    destination_id: targetCodes[0],
-    category: 'accommodation',
-    sub_category: 'hotel',
-    name: `Khách sạn cao cấp tại ${dest.name}`,
-    price: 1200000,
-    rating: 4.8,
-  };
+  if (!rawStay) {
+    rawStay = {
+      id: `SRV_${targetCodes[0]}_001`,
+      destination_id: targetCodes[0],
+      category: 'accommodation',
+      sub_category: 'hotel',
+      name: `Khách sạn cao cấp tại ${dest.name}`,
+      price: 1200000,
+      rating: 4.8,
+    };
+  }
 
-  const lodgingService = formatDatasetService(rawStay, req.people, nights);
+  const lodgingService = formatDatasetService(rawStay, planState.people, nights);
   lodgingService.time_window = 'overnight';
   const stayCost = lodgingService.total_cost_vnd;
 
-  const foodSource = foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []);
-  const actSource = acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []);
-
-  const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
-  const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
-
-
-  if (foodItemsFormatted.length === 0) {
-    foodItemsFormatted.push(formatDatasetService({
-      id: `SRV_${targetCodes[0]}_FOOD_01`,
-      destination_id: targetCodes[0],
-      category: 'food',
-      name: `Thưởng thức ẩm thực đặc sản tại ${dest.name}`,
-      price: 150000,
-      rating: 4.8
-    }, req.people, nights));
-  }
-
-  if (actItemsFormatted.length === 0) {
-    actItemsFormatted.push(formatDatasetService({
-      id: `SRV_${targetCodes[0]}_ACT_01`,
-      destination_id: targetCodes[0],
-      category: 'activity',
-      name: `Tham quan các danh thắng nổi tiếng tại ${dest.name}`,
-      price: 100000,
-      rating: 4.8
-    }, req.people, nights));
-  }
-
-  // 1. NON-REPEATING & MEAL-TYPE MATCHED FOOD SELECTION PIPELINE
-  const usedFoodIds = new Set<string>();
-
-  const getNextUniqueFood = (slotType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'late_night'): PlanServiceItem => {
-    // 1. Match unused item matching slotType (breakfast, lunch, dinner, snack, late_night)
-    const matchingUnused = foodItemsFormatted.find((item) => {
-      if (usedFoodIds.has(item.id)) return false;
-      const meals = (item.meal_type || 'breakfast,lunch,dinner').toLowerCase();
-      return meals.includes(slotType);
-    });
-
-    if (matchingUnused) {
-      usedFoodIds.add(matchingUnused.id);
-      return matchingUnused;
-    }
-
-    // 2. Any unused food item
-    const anyUnused = foodItemsFormatted.find((item) => !usedFoodIds.has(item.id));
-    if (anyUnused) {
-      usedFoodIds.add(anyUnused.id);
-      return anyUnused;
-    }
-
-    // 3. Fallback recycle
-    const recycledIndex = usedFoodIds.size % foodItemsFormatted.length;
-    return foodItemsFormatted[recycledIndex] || foodItemsFormatted[0];
-  };
-
-  // Helper constructors for Check-in (14:00) and Check-out (12:00) (Requirement 3 Part B)
   const createCheckInEvent = (hotelItem: PlanServiceItem, day: number): PlanServiceItem => ({
     id: `CHECK_IN_${hotelItem.id}_D${day}`,
     destination_id: hotelItem.destination_id,
@@ -507,52 +449,76 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     end_time: '12:30',
   });
 
-  const selections: any[] = [];
-  if (nights > 0) {
-    selections.push({ service_id: lodgingService.id, day: 0, slot: 'overnight' });
-  }
+  const defaultTimes: Record<string, { start: string; end: string }> = {
+    breakfast: { start: '08:00', end: '09:00' },
+    morning: { start: '09:30', end: '12:00' },
+    lunch: { start: '12:00', end: '13:30' },
+    afternoon: { start: '14:00', end: '17:00' },
+    dinner: { start: '19:00', end: '20:30' },
+    evening: { start: '20:30', end: '22:00' },
+  };
 
   let foodAllocated = 0;
   let actAllocated = 0;
 
-  const dailyItinerary = Array.from({ length: req.num_days }, (_, idx) => {
+  const dailyItinerary = Array.from({ length: planState.num_days }, (_, idx) => {
     const dayNum = idx + 1;
+    const dayEvents: PlanServiceItem[] = [];
 
-    // Pick 3 UNIQUE food venues matching Breakfast, Lunch, Dinner
-    const bfast = getNextUniqueFood('breakfast');
-    const lunch = getNextUniqueFood('lunch');
-    const dinner = getNextUniqueFood('dinner');
+    // Stay card
+    dayEvents.push({ ...lodgingService, day: dayNum, slot: 'overnight' });
 
-
-    const morningAct = actItemsFormatted[idx % actItemsFormatted.length] || actItemsFormatted[0];
-    const afternoonAct = actItemsFormatted[(idx + 1) % actItemsFormatted.length] || actItemsFormatted[0];
-
-    const dayStay = { ...lodgingService, day: dayNum, slot: 'overnight' };
-    const bfastEv = { ...bfast, day: dayNum, slot: 'breakfast', start_time: '08:00', end_time: '09:00' };
-    const morningEv = { ...morningAct, day: dayNum, slot: 'morning', start_time: '09:30', end_time: '12:00' };
-    const lunchEv = { ...lunch, day: dayNum, slot: 'lunch', start_time: '12:00', end_time: '13:30' };
-    const afternoonEv = { ...afternoonAct, day: dayNum, slot: 'afternoon', start_time: '14:00', end_time: '17:00' };
-    const dinnerEv = { ...dinner, day: dayNum, slot: 'dinner', start_time: '19:00', end_time: '20:30' };
-
-    const dayEvents: PlanServiceItem[] = [dayStay];
-
-    // Day 1: Add Check-in (14:00) procedure
+    // Day 1 Check-in procedure
     if (dayNum === 1 && nights > 0) {
       dayEvents.push(createCheckInEvent(lodgingService, dayNum));
     }
 
-    dayEvents.push(bfastEv, morningEv, lunchEv, afternoonEv, dinnerEv);
+    const slots = ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner'];
+    for (const slotName of slots) {
+      const sel = planState.selections?.find((s) => s.day === dayNum && s.slot === slotName);
+      let rawSrv = sel?.service_id ? rawServices.find((s) => s.id === sel.service_id) : null;
 
-    // Final Day: Add Check-out (12:00) procedure
-    if (dayNum === req.num_days && nights > 0) {
+      if (!rawSrv) {
+        const isFood = ['breakfast', 'lunch', 'dinner'].includes(slotName);
+        const candidates = destServices.filter((s) => isFood ? s.category === 'food' : s.category === 'activity');
+        rawSrv = candidates[(dayNum + slotName.length) % Math.max(1, candidates.length)] || {
+          id: `SRV_${targetCodes[0]}_${slotName.toUpperCase()}`,
+          destination_id: targetCodes[0],
+          category: isFood ? 'food' : 'activity',
+          name: isFood ? `Thưởng thức ẩm thực tại ${dest.name}` : `Tham quan tại ${dest.name}`,
+          price: isFood ? 150000 : 100000,
+          rating: 4.8,
+        };
+      }
+
+      const formatted = formatDatasetService(rawSrv, planState.people, nights);
+      const times = defaultTimes[slotName] || { start: '10:00', end: '12:00' };
+
+      const event: PlanServiceItem = {
+        ...formatted,
+        day: dayNum,
+        slot: slotName,
+        start_time: times.start,
+        end_time: times.end,
+      };
+
+      dayEvents.push(event);
+
+      if (event.category === 'food') {
+        foodAllocated += event.total_cost_vnd;
+      } else if (event.category === 'activity' || (event.category as string) === 'activities') {
+        actAllocated += event.total_cost_vnd;
+      }
+    }
+
+    if (dayNum === planState.num_days && nights > 0) {
       dayEvents.push(createCheckOutEvent(lodgingService, dayNum));
     }
 
-    // STRICT CHRONOLOGICAL SORTING BY TIME (08:00 -> 09:30 -> 12:00 Check-out -> 12:30 Lunch -> 14:00 Check-in -> 14:30 -> 19:00)
     const parseTimeToMinutes = (timeStr?: string, slot?: string): number => {
-      if (slot === 'overnight') return 0; // Only main stay card gets score 0
-      if (slot === 'check_out') return 1200; // 12:00 PM
-      if (slot === 'check_in') return 1400; // 14:00 PM
+      if (slot === 'overnight') return 0;
+      if (slot === 'check_out') return 1200;
+      if (slot === 'check_in') return 1400;
 
       if (timeStr && timeStr.includes(':')) {
         const parts = timeStr.split(':').map(Number);
@@ -573,29 +539,18 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
     dayEvents.sort((a, b) => parseTimeToMinutes(a.start_time, a.slot) - parseTimeToMinutes(b.start_time, b.slot));
 
-
-    selections.push({ service_id: bfastEv.id, day: dayNum, slot: 'breakfast' });
-    selections.push({ service_id: morningEv.id, day: dayNum, slot: 'morning' });
-    selections.push({ service_id: lunchEv.id, day: dayNum, slot: 'lunch' });
-    selections.push({ service_id: afternoonEv.id, day: dayNum, slot: 'afternoon' });
-    selections.push({ service_id: dinnerEv.id, day: dayNum, slot: 'dinner' });
-
-
-    const dayFoodTotal = bfastEv.total_cost_vnd + lunchEv.total_cost_vnd + dinnerEv.total_cost_vnd;
-    const dayActTotal = morningEv.total_cost_vnd + afternoonEv.total_cost_vnd;
-
-    foodAllocated += dayFoodTotal;
-    actAllocated += dayActTotal;
+    const dayFoodTotal = dayEvents.filter((e) => e.category === 'food').reduce((sum, e) => sum + e.total_cost_vnd, 0);
+    const dayActTotal = dayEvents.filter((e) => e.category === 'activity' || (e.category as string) === 'activities').reduce((sum, e) => sum + e.total_cost_vnd, 0);
 
     return {
       day: dayNum,
       events: dayEvents,
       costs: {
-        stay: Math.round(stayCost / req.num_days),
+        stay: Math.round(stayCost / planState.num_days),
         food: dayFoodTotal,
         activity: dayActTotal,
       },
-      total_cost_vnd: Math.round(stayCost / req.num_days) + dayFoodTotal + dayActTotal,
+      total_cost_vnd: Math.round(stayCost / planState.num_days) + dayFoodTotal + dayActTotal,
     };
   });
 
@@ -610,12 +565,12 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
       coordinates: dest.coordinates || [105.8542, 21.0285],
       hero_image: dest.hero_image || '',
     },
-    trip: { people: req.people, num_days: req.num_days, nights: nights },
+    trip: { people: planState.people, num_days: planState.num_days, nights: nights },
     budget: {
-      total_vnd: req.total_budget,
+      total_vnd: planState.total_budget,
       allocated_vnd: totalAllocated,
-      remaining_vnd: Math.max(0, req.total_budget - totalAllocated),
-      per_person_vnd: Math.round(totalAllocated / req.people),
+      remaining_vnd: Math.max(0, planState.total_budget - totalAllocated),
+      per_person_vnd: Math.round(totalAllocated / planState.people),
       allocations: {
         stay: { amount_vnd: stayCost, percentage: Math.round((stayCost / (totalAllocated || 1)) * 100) },
         food: { amount_vnd: foodAllocated, percentage: Math.round((foodAllocated / (totalAllocated || 1)) * 100) },
@@ -623,19 +578,128 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
       },
     },
     daily_itinerary: dailyItinerary,
-    plan_state: {
-      destination_id: dest.id as any,
-      total_budget: req.total_budget,
-      people: req.people,
-      num_days: req.num_days,
-      priorities: req.priorities,
-      preferences: req.preferences,
-      selections: selections,
-      catalog_version: 'v3.0_neon_database',
-    },
+    plan_state: planState,
     data_version: 'v3.0_neon_database',
     data_source: 'Neon PostgreSQL Database (Direct Driver)',
   };
+}
+
+export async function generatePlanDb(req: GeneratePlanRequest): Promise<MaterializedPlan> {
+  const destList = await getDestinationsFromDb();
+  const reqDestId = req.destination_id || 'HAN';
+  
+  const targetCodes = (DEST_CODE_MAP[reqDestId] || [reqDestId, reqDestId.toUpperCase()]).map(c => c.toUpperCase());
+  
+  const dest = destList.find((d) => 
+    d.id.toLowerCase() === reqDestId.toLowerCase() ||
+    (d.code && targetCodes.includes(d.code.toUpperCase()))
+  ) || destList.find((d) => (d.code || d.id).toUpperCase() === 'HAN') || destList[0];
+
+  const rawServices = await getServicesFromDb(reqDestId);
+  const destServices = rawServices.filter((s) => targetCodes.includes((s.destination_id || '').toUpperCase()));
+
+  const stays = destServices.filter((i) => i.category === 'accommodation' || i.category === 'stay');
+  const foods = destServices.filter((i) => i.category === 'food');
+  const acts = destServices.filter((i) => i.category === 'activity');
+
+  const nights = Math.max(0, req.num_days - 1);
+
+  const rawStay = stays.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0] || {
+    id: `SRV_${targetCodes[0]}_001`,
+    destination_id: targetCodes[0],
+    category: 'accommodation',
+    sub_category: 'hotel',
+    name: `Khách sạn cao cấp tại ${dest.name}`,
+    price: 1200000,
+    rating: 4.8,
+  };
+
+  const lodgingService = formatDatasetService(rawStay, req.people, nights);
+
+  const foodSource = foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []);
+  const actSource = acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []);
+
+  const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
+  const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
+
+  if (foodItemsFormatted.length === 0) {
+    foodItemsFormatted.push(formatDatasetService({
+      id: `SRV_${targetCodes[0]}_FOOD_01`,
+      destination_id: targetCodes[0],
+      category: 'food',
+      name: `Thưởng thức ẩm thực đặc sản tại ${dest.name}`,
+      price: 150000,
+      rating: 4.8
+    }, req.people, nights));
+  }
+
+  if (actItemsFormatted.length === 0) {
+    actItemsFormatted.push(formatDatasetService({
+      id: `SRV_${targetCodes[0]}_ACT_01`,
+      destination_id: targetCodes[0],
+      category: 'activity',
+      name: `Tham quan các danh thắng nổi tiếng tại ${dest.name}`,
+      price: 100000,
+      rating: 4.8
+    }, req.people, nights));
+  }
+
+  const usedFoodIds = new Set<string>();
+  const getNextUniqueFood = (slotType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'late_night'): PlanServiceItem => {
+    const matchingUnused = foodItemsFormatted.find((item) => {
+      if (usedFoodIds.has(item.id)) return false;
+      const meals = (item.meal_type || 'breakfast,lunch,dinner').toLowerCase();
+      return meals.includes(slotType);
+    });
+
+    if (matchingUnused) {
+      usedFoodIds.add(matchingUnused.id);
+      return matchingUnused;
+    }
+
+    const anyUnused = foodItemsFormatted.find((item) => !usedFoodIds.has(item.id));
+    if (anyUnused) {
+      usedFoodIds.add(anyUnused.id);
+      return anyUnused;
+    }
+
+    const recycledIndex = usedFoodIds.size % foodItemsFormatted.length;
+    return foodItemsFormatted[recycledIndex] || foodItemsFormatted[0];
+  };
+
+  const selections: any[] = [];
+  if (nights > 0) {
+    selections.push({ service_id: lodgingService.id, day: 0, slot: 'overnight' });
+  }
+
+  for (let idx = 0; idx < req.num_days; idx++) {
+    const dayNum = idx + 1;
+    const bfast = getNextUniqueFood('breakfast');
+    const lunch = getNextUniqueFood('lunch');
+    const dinner = getNextUniqueFood('dinner');
+
+    const morningAct = actItemsFormatted[idx % actItemsFormatted.length] || actItemsFormatted[0];
+    const afternoonAct = actItemsFormatted[(idx + 1) % actItemsFormatted.length] || actItemsFormatted[0];
+
+    selections.push({ service_id: bfast.id, day: dayNum, slot: 'breakfast' });
+    selections.push({ service_id: morningAct.id, day: dayNum, slot: 'morning' });
+    selections.push({ service_id: lunch.id, day: dayNum, slot: 'lunch' });
+    selections.push({ service_id: afternoonAct.id, day: dayNum, slot: 'afternoon' });
+    selections.push({ service_id: dinner.id, day: dayNum, slot: 'dinner' });
+  }
+
+  const initialState: PlanState = {
+    destination_id: dest.id as any,
+    total_budget: req.total_budget,
+    people: req.people,
+    num_days: req.num_days,
+    priorities: req.priorities,
+    preferences: req.preferences,
+    selections: selections,
+    catalog_version: 'v3.0_neon_database',
+  };
+
+  return materializePlanFromSelectionsDb(initialState);
 }
 
 export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOptionsResponse> {
@@ -686,14 +750,41 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
 
 
 export async function applySwapDb(req: ApplySwapRequest): Promise<MaterializedPlan> {
-  return generatePlanDb({
-    destination_id: req.plan_state.destination_id,
-    total_budget: req.plan_state.total_budget,
-    people: req.plan_state.people,
-    num_days: req.plan_state.num_days,
-    priorities: req.plan_state.priorities || { stay: 'normal', food: 'important', activity: 'normal' },
-    preferences: req.plan_state.preferences || { lodging_styles: [], food_styles: [], activity_styles: [] },
+  const { plan_state, target, replacement_service_id } = req;
+  if (!plan_state) {
+    throw new Error('Missing plan_state in ApplySwapRequest');
+  }
+
+  const isStaySwap = target.slot === 'overnight' || target.day === 0;
+
+  const updatedSelections = (plan_state.selections || []).map((s) => {
+    if (isStaySwap && (s.slot === 'overnight' || s.day === 0)) {
+      return { service_id: replacement_service_id, day: 0, slot: 'overnight' };
+    }
+    if (s.day === target.day && s.slot === target.slot) {
+      return { service_id: replacement_service_id, day: target.day, slot: target.slot };
+    }
+    if (target.service_id && s.service_id === target.service_id && s.day === target.day) {
+      return { service_id: replacement_service_id, day: target.day, slot: target.slot };
+    }
+    return s;
   });
+
+  const matched = updatedSelections.some((s) => s.service_id === replacement_service_id);
+  if (!matched) {
+    updatedSelections.push({
+      service_id: replacement_service_id,
+      day: isStaySwap ? 0 : target.day,
+      slot: isStaySwap ? 'overnight' : target.slot,
+    });
+  }
+
+  const updatedState: PlanState = {
+    ...plan_state,
+    selections: updatedSelections,
+  };
+
+  return materializePlanFromSelectionsDb(updatedState);
 }
 
 // --------------------------------------------------------

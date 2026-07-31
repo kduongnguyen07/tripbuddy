@@ -250,6 +250,13 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
           targetService={targetService}
           onSwapApplied={(updatedPlan) => {
             onPlanUpdated(updatedPlan);
+            if (targetSelection) {
+              const swappedDay = updatedPlan.daily_itinerary?.find((d) => d.day === targetSelection.day);
+              const swappedEv = swappedDay?.events.find((e) => e.slot === targetSelection.slot);
+              if (swappedEv) {
+                setInspectedService(swappedEv);
+              }
+            }
           }}
         />
       )}
