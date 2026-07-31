@@ -61,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                 isLight && scrolled ? 'text-[#B8860B]' : 'text-[#d4af37]'
               }
             >
-              BUDGET
+              BUDDY
             </span>
           </span>
         </div>
