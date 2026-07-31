@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import confetti from 'canvas-confetti';
-import { Download, FileText, CheckCircle2, Printer, AlertCircle } from 'lucide-react';
+import { Download, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { MaterializedPlan } from '../../types';
 import { PdfItineraryDocument } from '../itinerary/PdfItineraryDocument';
 import { useData } from '../../context/DataContext';
@@ -132,15 +132,6 @@ export const InfographicExporter: React.FC<ExporterProps> = ({ plan }) => {
             }`}
           >
             {success ? <><CheckCircle2 className="w-3.5 h-3.5" /><span>Đã tải PDF!</span></> : <><Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} /><span>{exporting ? 'Đang tạo PDF...' : 'Tải file PDF'}</span></>}
-          </button>
-          <button
-            onClick={() => window.print()}
-            className={`p-2 rounded-xl border transition-all cursor-pointer shadow-md ${
-              isLight ? 'bg-white hover:bg-amber-100/60 text-[#231F1D] border-[#E5DEC9]' : 'bg-[#0C0805] hover:bg-[#1a140f] text-slate-300 border-amber-950/60 hover:border-[#d4af37]'
-            }`}
-            title="In hoặc lưu bằng trình duyệt"
-          >
-            <Printer className={`w-4 h-4 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} />
           </button>
         </div>
         {error && <p role="alert" className="w-full flex items-center gap-1.5 text-[10px] text-red-500"><AlertCircle className="w-3.5 h-3.5" />{error}</p>}
