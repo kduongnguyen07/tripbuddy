@@ -59,7 +59,7 @@ def seed_database():
                 print(f"[INFO] Destinations in sync with Database ({len(existing)} items).")
 
         # 2. Seed 500 Services
-        services_path = Path(__file__).with_name("tripbudget_full_dataset_500.json")
+        services_path = Path(__file__).with_name("tripbuddy_full_dataset_500.json")
         if services_path.exists():
             existing_srv_ids = set(r[0] for r in db.query(ServiceModel.id).all())
             services_data = json.loads(services_path.read_text(encoding="utf-8"))

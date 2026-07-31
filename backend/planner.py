@@ -160,7 +160,7 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
     stay = _eligible_services(catalog, request.destination_id, "stay", request.preferences)
     food = _eligible_services(catalog, request.destination_id, "food", request.preferences)
     activities = _eligible_services(catalog, request.destination_id, "activity", request.preferences)
-    problem = pulp.LpProblem("tripbudget_plan", pulp.LpMaximize)
+    problem = pulp.LpProblem("tripbuddy_plan", pulp.LpMaximize)
     variables: dict[tuple[str, int, str], pulp.LpVariable] = {}
 
     if nights:

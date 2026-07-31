@@ -92,7 +92,7 @@ export const InfographicExporter: React.FC<ExporterProps> = ({ plan }) => {
 
       const destination = safeFileSegment(plan.destination?.name?.split('-')[0].trim() || 'VietNam');
       const date = new Date().toISOString().slice(0, 10);
-      pdf.save(`TripBudget_LichTrinh_${destination}_${date}.pdf`);
+      pdf.save(`TripBuddy_LichTrinh_${destination}_${date}.pdf`);
 
       confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
       setSuccess(true);

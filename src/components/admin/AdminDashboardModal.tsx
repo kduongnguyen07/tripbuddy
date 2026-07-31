@@ -11,7 +11,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
-import fullDatasetRaw from '../../../backend/tripbudget_full_dataset_500.json';
+import fullDatasetRaw from '../../../backend/tripbuddy_full_dataset_500.json';
 import { getServicesFromDb, addServiceDb, deleteServiceDb } from '../../services/neonDb';
 
 
@@ -195,10 +195,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'tripbudget_full_dataset_500.json';
+    link.download = 'tripbuddy_full_dataset_500.json';
     link.click();
     URL.revokeObjectURL(url);
-    showToast('Đã xuất file dataset tripbudget_full_dataset_500.json!');
+    showToast('Đã xuất file dataset tripbuddy_full_dataset_500.json!');
   };
 
   // Save Hero Config
@@ -365,7 +365,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `tripbudget_data_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `tripbuddy_data_backup_${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
     showToast('Đã xuất dữ liệu sao lưu hệ thống (.json) thành công!');
@@ -421,12 +421,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
         <aside className="w-full md:w-64 bg-slate-50/90 border-r border-slate-200/80 p-6 flex flex-col justify-between shrink-0 font-sans">
           <div className="space-y-8">
             
-            {/* Brand Logo Header (tripbudget.admin) */}
+            {/* Brand Logo Header (tripbuddy.admin) */}
             <div className="flex items-center gap-2.5 font-sans font-black text-xl text-slate-900 tracking-tight">
               <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-extrabold text-base shadow-sm">
                 ✈
               </div>
-              <span className="font-extrabold">tripbudget<span className="text-orange-500">.admin</span></span>
+              <span className="font-extrabold">tripbuddy<span className="text-orange-500">.admin</span></span>
             </div>
 
             {/* Sidebar Navigation Menu */}
@@ -523,7 +523,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
           {/* Sidebar Footer Copyright */}
           <div className="pt-6 border-t border-slate-200/60 text-[11px] text-slate-400 font-medium">
-            © 2026 TripBudget Systems
+            © 2026 TripBuddy Systems
           </div>
         </aside>
 
@@ -689,7 +689,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
 
                       <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-4 py-1.5 text-xs text-slate-600 font-mono shadow-inner w-64 sm:w-80">
                         <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span className="truncate">https://tripbudget-vietnam.vn</span>
+                        <span className="truncate">https://tripbuddy-vietnam.vn</span>
                       </div>
                     </div>
 
@@ -760,7 +760,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                         key={iframeKey}
                         src={window.location.origin}
                         className="w-full h-full border-0"
-                        title="TripBudget Live Preview"
+                        title="TripBuddy Live Preview"
                       />
                     </div>
                   </div>
@@ -789,7 +789,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                     <button
                       onClick={handleExportDatasetJSON}
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Tải về file tripbudget_full_dataset_500.json"
+                      title="Tải về file tripbuddy_full_dataset_500.json"
                     >
                       <Download className="w-4 h-4" />
                       <span>Xuất File Dataset (.json)</span>
@@ -984,7 +984,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                             value={editingService.booking_url || ''}
                             onChange={(e) => setEditingService({ ...editingService, booking_url: e.target.value })}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
-                            placeholder="https://partner.tripbudget.vn/..."
+                            placeholder="https://partner.tripbuddy.vn/..."
                           />
                         </div>
                       </div>

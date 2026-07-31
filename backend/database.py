@@ -1,4 +1,4 @@
-"""Database configuration and session management for TripBudget.
+"""Database configuration and session management for TripBuddy.
 
 Supports online PostgreSQL (Neon, Supabase, Railway, Render, ElephantSQL)
 with automatic fallback to SQLite when DATABASE_URL is not set.
@@ -33,7 +33,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     os.getenv(
         "POSTGRES_URL",
-        "sqlite:///./tripbudget.db"
+        "sqlite:///./tripbuddy.db"
     )
 )
 

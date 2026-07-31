@@ -32,7 +32,7 @@ export { ItineraryTimeline } from './itinerary/ItineraryTimeline';
 export { SwapItemModal } from './itinerary/SwapItemModal';
 export { PlanResultPage } from './itinerary/PlanResultPage';
 
-// Admin components
+// Admin components are only opened through the private /muriel route.
 export { AdminDashboardModal } from './admin/AdminDashboardModal';
 export { AdminLoginModal } from './admin/AdminLoginModal';
 

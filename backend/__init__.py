@@ -1,1 +1,1 @@
-"""TripBudget backend package."""
+"""TripBuddy backend package."""

@@ -13,7 +13,7 @@ export const TestimonialsSection: React.FC = () => {
     {
       name: "Elena Rostova",
       role: "Du khách Quốc tế",
-      text: "TripBudget AI formatted my Vietnam itinerary perfectly. Ha Long Bay and Hoi An lantern night exceeded all expectations. Highly recommended!",
+      text: "TripBuddy formatted my Vietnam itinerary perfectly. Ha Long Bay and Hoi An lantern night exceeded all expectations. Highly recommended!",
       rating: 5
     },
     {

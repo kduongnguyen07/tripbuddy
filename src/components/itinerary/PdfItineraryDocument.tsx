@@ -41,7 +41,7 @@ function replaceWithFallback(event: SyntheticEvent<HTMLImageElement>, title: str
 function PageFooter({ page, totalPages }: { page: number; totalPages: number }) {
   return (
     <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #e8dfcf', display: 'flex', justifyContent: 'space-between', color: '#766d61', fontSize: 11 }}>
-      <span>TripBudget - Cẩm nang lịch trình</span>
+      <span>TripBuddy - Cẩm nang lịch trình</span>
       <span>Trang {page}/{totalPages}</span>
     </div>
   );
@@ -95,7 +95,7 @@ function DayPage({ plan, day, page, totalPages }: { plan: MaterializedPlan; day:
     <section data-pdf-page style={pageStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #d2a83b', paddingBottom: 18 }}>
         <div>
-          <div style={eyebrowStyle}>TRIPBUDGET / LỊCH TRÌNH CHI TIẾT</div>
+          <div style={eyebrowStyle}>TRIPBUDDY / LỊCH TRÌNH CHI TIẾT</div>
           <h2 style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 31, lineHeight: 1.05, margin: '8px 0 0' }}>Ngày {day.day} - Khám phá {name}</h2>
         </div>
         <div style={{ color: '#8e6512', fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, textAlign: 'right' }}>{formatVnd(day.total_cost_vnd)}</div>
@@ -157,7 +157,7 @@ export function PdfItineraryDocument({ plan, documentRef }: PdfItineraryDocument
             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.62 }}
           />
           <div style={{ position: 'absolute', inset: 0, padding: 30, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(0deg, rgba(24,17,10,0.88), rgba(24,17,10,0.05))' }}>
-            <div style={{ color: '#f2cb64', fontSize: 11, fontWeight: 800, letterSpacing: '0.14em' }}>TRIPBUDGET</div>
+            <div style={{ color: '#f2cb64', fontSize: 11, fontWeight: 800, letterSpacing: '0.14em' }}>TRIPBUDDY</div>
             <h1 style={{ color: '#ffffff', fontFamily: 'Georgia, serif', fontSize: 42, lineHeight: 1.04, margin: '7px 0 0' }}>Cẩm nang lịch trình {name}</h1>
           </div>
         </div>

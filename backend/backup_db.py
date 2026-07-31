@@ -41,7 +41,7 @@ def export_database_json(output_dir: str | None = None) -> dict:
 
         base_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = base_dir / f"backup_tripbudget_{timestamp}.json"
+        file_path = base_dir / f"backup_tripbuddy_{timestamp}.json"
 
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(backup_payload, f, ensure_ascii=False, indent=2)

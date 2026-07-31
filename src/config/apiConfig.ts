@@ -1,5 +1,5 @@
 /**
- * Centralized API Configuration for TripBudget.
+ * Centralized API Configuration for TripBuddy.
  * Supports environment variable overrides for production deployment (Vercel, Render, Railway).
  */
 

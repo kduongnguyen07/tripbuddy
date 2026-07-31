@@ -56,7 +56,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
-      const saved = localStorage.getItem('tripbudget_theme');
+      const saved = localStorage.getItem('tripbuddy_theme');
       return saved === 'dark' ? 'dark' : 'light';
     } catch {
       return 'light';
@@ -68,7 +68,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    localStorage.setItem('tripbudget_theme', theme);
+    localStorage.setItem('tripbuddy_theme', theme);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -78,7 +78,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getDeletedDestIds = (): string[] => {
     try {
-      const saved = localStorage.getItem('tripbudget_deleted_destinations');
+      const saved = localStorage.getItem('tripbuddy_deleted_destinations');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -87,7 +87,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getDeletedSlideIds = (): string[] => {
     try {
-      const saved = localStorage.getItem('tripbudget_deleted_slides');
+      const saved = localStorage.getItem('tripbuddy_deleted_slides');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -96,7 +96,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const markLocalUpdate = () => {
     try {
-      localStorage.setItem('tripbudget_last_local_update', Date.now().toString());
+      localStorage.setItem('tripbuddy_last_local_update', Date.now().toString());
     } catch {}
   };
 
@@ -124,7 +124,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [slides, setSlides] = useState<JourneySlide[]>(() => {
     try {
       const deletedSet = new Set(getDeletedSlideIds());
-      const saved = localStorage.getItem('tripbudget_slides');
+      const saved = localStorage.getItem('tripbuddy_slides');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -139,7 +139,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [heroConfig, setHeroConfig] = useState<HeroConfig>(() => {
     try {
-      const saved = localStorage.getItem('tripbudget_hero');
+      const saved = localStorage.getItem('tripbuddy_hero');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.titleLine1) {
@@ -158,11 +158,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('tripbudget_slides', JSON.stringify(slides));
+    localStorage.setItem('tripbuddy_slides', JSON.stringify(slides));
   }, [slides]);
 
   useEffect(() => {
-    localStorage.setItem('tripbudget_hero', JSON.stringify(heroConfig));
+    localStorage.setItem('tripbuddy_hero', JSON.stringify(heroConfig));
   }, [heroConfig]);
 
   // Load all site data strictly from Neon Postgres Database
@@ -222,7 +222,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const notifyStateChange = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new Event('tripbudget_dataset_updated'));
+      window.dispatchEvent(new Event('tripbuddy_dataset_updated'));
     }
   };
 
@@ -231,7 +231,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedDest = await addDestinationDb(dest);
     setDestinations((prev) => {
       const updated = [savedDest, ...prev.filter((d) => d.id !== savedDest.id)];
-      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_destinations', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -241,7 +241,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedDest = await updateDestInDb(dest);
     setDestinations((prev) => {
       const updated = prev.map((d) => (d.id === savedDest.id ? savedDest : d));
-      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_destinations', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -251,7 +251,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await deleteDestInDb(id);
     setDestinations((prev) => {
       const updated = prev.filter((d) => d.id !== id);
-      localStorage.setItem('tripbudget_destinations', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_destinations', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -262,7 +262,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedSlide = await addSlideDb(slide);
     setSlides((prev) => {
       const updated = [...prev.filter((s) => s.id !== savedSlide.id), savedSlide];
-      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_slides', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -272,7 +272,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedSlide = await updateSlideDb(slide);
     setSlides((prev) => {
       const updated = prev.map((s) => (s.id === savedSlide.id ? savedSlide : s));
-      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_slides', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -282,7 +282,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await deleteSlideFromDb(id);
     setSlides((prev) => {
       const updated = prev.filter((s) => s.id !== id);
-      localStorage.setItem('tripbudget_slides', JSON.stringify(updated));
+      localStorage.setItem('tripbuddy_slides', JSON.stringify(updated));
       return updated;
     });
     notifyStateChange();
@@ -292,7 +292,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateHeroConfig = async (config: HeroConfig) => {
     const savedHero = await updateHeroConfigDb(config);
     setHeroConfig(savedHero);
-    localStorage.setItem('tripbudget_hero', JSON.stringify(savedHero));
+    localStorage.setItem('tripbuddy_hero', JSON.stringify(savedHero));
     notifyStateChange();
   };
 
@@ -314,15 +314,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const parsed = JSON.parse(jsonString);
       if (parsed.destinations && Array.isArray(parsed.destinations)) {
         setDestinations(parsed.destinations);
-        localStorage.setItem('tripbudget_destinations', JSON.stringify(parsed.destinations));
+        localStorage.setItem('tripbuddy_destinations', JSON.stringify(parsed.destinations));
       }
       if (parsed.slides && Array.isArray(parsed.slides)) {
         setSlides(parsed.slides);
-        localStorage.setItem('tripbudget_slides', JSON.stringify(parsed.slides));
+        localStorage.setItem('tripbuddy_slides', JSON.stringify(parsed.slides));
       }
       if (parsed.heroConfig) {
         setHeroConfig(parsed.heroConfig);
-        localStorage.setItem('tripbudget_hero', JSON.stringify(parsed.heroConfig));
+        localStorage.setItem('tripbuddy_hero', JSON.stringify(parsed.heroConfig));
       }
       markLocalUpdate();
       notifyStateChange();
@@ -337,14 +337,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDestinations(destinationsData as unknown as Destination[]);
     setSlides(slidesData as JourneySlide[]);
     setHeroConfig(DEFAULT_HERO_CONFIG);
-    localStorage.removeItem('tripbudget_destinations');
-    localStorage.removeItem('tripbudget_slides');
-    localStorage.removeItem('tripbudget_hero');
-    localStorage.removeItem('tripbudget_last_local_update');
-    localStorage.removeItem('tripbudget_deleted_destinations');
-    localStorage.removeItem('tripbudget_deleted_slides');
-    localStorage.removeItem('admin_tripbudget_dataset_500');
-    localStorage.removeItem('tripbudget_dataset_version');
+    localStorage.removeItem('tripbuddy_destinations');
+    localStorage.removeItem('tripbuddy_slides');
+    localStorage.removeItem('tripbuddy_hero');
+    localStorage.removeItem('tripbuddy_last_local_update');
+    localStorage.removeItem('tripbuddy_deleted_destinations');
+    localStorage.removeItem('tripbuddy_deleted_slides');
+    localStorage.removeItem('admin_tripbuddy_dataset_500');
+    localStorage.removeItem('tripbuddy_dataset_version');
     markLocalUpdate();
     notifyStateChange();
   };

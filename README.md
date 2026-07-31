@@ -1,4 +1,4 @@
-# TripBudgetAI
+# TripBuddy
 
 ## Backend
 
@@ -17,4 +17,4 @@ API documentation is available at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/plans/swap-options`
 - `POST /api/v1/plans/apply-swap`
 
-`backend/tripbudget_full_dataset_500.json` is the dataset including Hà Nội, Huế, Đà Nẵng, Đà Lạt and Phú Quốc. 
+`backend/tripbuddy_full_dataset_500.json` is the dataset including Hà Nội, Huế, Đà Nẵng, Đà Lạt and Phú Quốc.

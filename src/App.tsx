@@ -21,7 +21,7 @@ function MainContent() {
   // Navigation & Routing State ('home' vs 'result') with localStorage persistence for F5 reload
   const [activePlan, setActivePlan] = useState<MaterializedPlan | null>(() => {
     try {
-      const saved = localStorage.getItem('tripbudget_active_plan');
+      const saved = localStorage.getItem('tripbuddy_active_plan');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -32,7 +32,7 @@ function MainContent() {
     const path = window.location.pathname.toLowerCase();
     const hash = window.location.hash.toLowerCase();
     if (path.includes('/result') || hash === '#result') {
-      const saved = localStorage.getItem('tripbudget_active_plan');
+      const saved = localStorage.getItem('tripbuddy_active_plan');
       return saved ? 'result' : 'home';
     }
     return 'home';
@@ -44,16 +44,16 @@ function MainContent() {
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
 
-  // Auto-refresh main page state when admin updates dataset or destinations
+  // Auto-refresh main page state when the dataset or destinations change
   const [, setRefreshTick] = useState<number>(0);
   useEffect(() => {
     const handleRefresh = () => {
       setRefreshTick((t) => t + 1);
     };
-    window.addEventListener('tripbudget_dataset_updated', handleRefresh);
+    window.addEventListener('tripbuddy_dataset_updated', handleRefresh);
     window.addEventListener('storage', handleRefresh);
     return () => {
-      window.removeEventListener('tripbudget_dataset_updated', handleRefresh);
+      window.removeEventListener('tripbuddy_dataset_updated', handleRefresh);
       window.removeEventListener('storage', handleRefresh);
     };
   }, []);
@@ -82,7 +82,7 @@ function MainContent() {
         let planObj = activePlan;
         if (!planObj) {
           try {
-            const saved = localStorage.getItem('tripbudget_active_plan');
+            const saved = localStorage.getItem('tripbuddy_active_plan');
             if (saved) {
               planObj = JSON.parse(saved);
               setActivePlan(planObj);
@@ -109,23 +109,14 @@ function MainContent() {
     checkRoute();
     window.addEventListener('popstate', checkRoute);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm' || e.key === 'A' || e.key === 'a')) {
-        e.preventDefault();
-        setIsLoginOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('popstate', checkRoute);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [activePlan]);
 
   const handlePlanGenerated = (plan: MaterializedPlan) => {
     try {
-      localStorage.setItem('tripbudget_active_plan', JSON.stringify(plan));
+      localStorage.setItem('tripbuddy_active_plan', JSON.stringify(plan));
     } catch (e) {
       console.warn('Failed to store active plan in localStorage:', e);
     }
@@ -137,7 +128,7 @@ function MainContent() {
 
   const handleBackToHome = () => {
     try {
-      localStorage.removeItem('tripbudget_active_plan');
+      localStorage.removeItem('tripbuddy_active_plan');
     } catch (e) {
       console.warn('Failed to clear active plan from localStorage:', e);
     }
@@ -247,7 +238,6 @@ function MainContent() {
         )}
       </main>
 
-      {/* Admin Passcode Login Modal */}
       <AdminLoginModal
         isOpen={isLoginOpen}
         onClose={() => setIsLoginOpen(false)}
@@ -257,7 +247,6 @@ function MainContent() {
         }}
       />
 
-      {/* Master Admin CMS Dashboard Modal */}
       <AdminDashboardModal
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
@@ -292,7 +281,7 @@ function MainContent() {
                       isLight ? 'text-[#231F1D]' : 'text-white'
                     }`}
                   >
-                    TRIPBUDGET VIETNAM
+                    TRIPBUDDY VIETNAM
                   </div>
                   <p
                     className={`text-[11px] ${
@@ -318,16 +307,7 @@ function MainContent() {
                 isLight ? 'text-[#8A8075]' : 'text-slate-500'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span>© 2026 TripBudget Vietnam. All rights reserved.</span>
-                <button
-                  onClick={() => setIsLoginOpen(true)}
-                  className="ml-3 text-[#d4af37] hover:underline font-extrabold cursor-pointer"
-                  title="Mở Trang Quản Trị Admin System"
-                >
-                  ⚙️ Quản Trị Hệ Thống (Admin Portal)
-                </button>
-              </div>
+              <span>© 2026 TripBuddy Vietnam. All rights reserved.</span>
               <div className="flex items-center gap-1">
                 <span>Bản quyền nội dung thuộc về</span>
                 <Heart className="w-3.5 h-3.5 fill-[#d4af37] text-[#d4af37]" />

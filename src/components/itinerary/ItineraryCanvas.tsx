@@ -146,7 +146,7 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
             }`}
           >
             <Compass className="w-4 h-4 text-[#d4af37]" />
-            <span>TripBuddy AI — Tối Ưu Hóa Kế Hoạch Du Lịch</span>
+            <span>TripBuddy — Tối Ưu Hóa Kế Hoạch Du Lịch</span>
           </div>
 
           <h2

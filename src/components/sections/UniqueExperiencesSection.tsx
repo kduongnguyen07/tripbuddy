@@ -22,7 +22,7 @@ export const UniqueExperiencesSection: React.FC = () => {
           className="lg:col-span-7 space-y-8"
         >
           <div className="space-y-4">
-            <span className="text-sm font-medium text-orange-400 uppercase tracking-widest">About TripBudget AI</span>
+            <span className="text-sm font-medium text-orange-400 uppercase tracking-widest">About TripBuddy</span>
             
             <h2 className="text-4xl sm:text-6xl font-black font-serif tracking-tight leading-tight">
               We are collectors of <br />

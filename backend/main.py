@@ -25,7 +25,7 @@ from backend.schemas import (
 from backend.seed_db import seed_database
 from backend.backup_db import export_database_json
 
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "tripbudget_admin_secret_2026")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "tripbuddy_admin_secret_2026")
 
 
 # Create DB tables automatically on server start
@@ -42,7 +42,7 @@ def _allowed_origins() -> list[str]:
 
 
 app = FastAPI(
-    title="TripBudget Planning API",
+    title="TripBuddy Planning API",
     description="Planning API backed by PostgreSQL (Neon) Database.",
     version="3.0.0",
 )
@@ -57,7 +57,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root(catalog: CatalogRepository = Depends(get_catalog)):
-    return {"app": "TripBudget Planning API", "status": "online", "docs": "/docs", "data_version": catalog.version}
+    return {"app": "TripBuddy Planning API", "status": "online", "docs": "/docs", "data_version": catalog.version}
 
 
 @app.get("/api/v1/destinations")
@@ -227,7 +227,7 @@ def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Dep
     db.commit()
     # ---- Persist to JSON dataset ----
     try:
-        json_path = Path(__file__).parent / "tripbudget_full_dataset_500.json"
+        json_path = Path(__file__).parent / "tripbuddy_full_dataset_500.json"
         if json_path.exists():
             with open(json_path, "r", encoding="utf-8") as f:
                 dataset = json.load(f)

@@ -1,4 +1,4 @@
-"""Normalize the generated TripBudget fixture into the catalog contract.
+"""Normalize the generated TripBuddy fixture into the catalog contract.
 
 The generated fixture intentionally has a compact authoring schema. This module
 is the only translation boundary; a later data provider can emit the canonical
@@ -43,7 +43,7 @@ def _capacity_for(subtype: str) -> int:
 
 
 def normalize_generated_records(records: list[dict[str, Any]], source_path: Path) -> dict[str, Any]:
-    """Convert `tripbudget_full_dataset_500.json` records to canonical services."""
+    """Convert `tripbuddy_full_dataset_500.json` records to canonical services."""
     if not records:
         raise ValueError("Generated dataset is empty")
 
@@ -95,7 +95,7 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
 
         # Unsplash fallback photos by category
         img = record.get("image_url") or ""
-        if not img or "tripbudget.vn" in img:
+        if not img or "tripbuddy.vn" in img:
             if category == "stay":
                 img = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
             elif category == "food":

@@ -1,5 +1,5 @@
 /**
- * Direct Neon PostgreSQL Database Client for TripBudget.
+ * Direct Neon PostgreSQL Database Client for TripBuddy.
  * Eliminates intermediate API server / REST endpoints entirely,
  * executing SQL queries directly against Neon Database over serverless HTTPS.
  */
@@ -21,7 +21,7 @@ import {
 } from '../types';
 import destinationsData from '../data/destinationsData.json';
 import slidesData from '../data/slidesData.json';
-import fullDataset from '../../backend/tripbudget_full_dataset_500.json';
+import fullDataset from '../../backend/tripbuddy_full_dataset_500.json';
 
 const DEFAULT_HERO_CONFIG: HeroConfig = {
   badge: 'VIỆT NAM VÀ NHỮNG CHUYẾN ĐI',

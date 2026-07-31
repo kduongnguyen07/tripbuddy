@@ -51,7 +51,7 @@ Thumbs.db
 
 # SQLite local DB
 *.db
-tripbudget.db
+tripbuddy.db
 repomix-output.xml
 
 

@@ -62,7 +62,7 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
       {/* Grid of Boutique Cards */}
       {destinations.length === 0 ? (
         <div className={`text-center py-16 text-sm rounded-2xl border ${isLight ? 'bg-white border-[#E5DEC9] text-[#665E55]' : 'bg-[#14100c] border-amber-950/40 text-slate-400'}`}>
-          Chưa có điểm đến nào. Hãy thêm điểm đến mới từ Trang Quản Trị Admin.
+          Chưa có điểm đến nào để hiển thị.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">

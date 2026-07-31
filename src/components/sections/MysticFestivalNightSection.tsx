@@ -40,7 +40,7 @@ export const MysticFestivalNightSection: React.FC = () => {
           </h2>
 
           <p className="text-slate-300 text-sm sm:text-base font-sans leading-relaxed">
-            Experience the mesmerizing lantern lights of Hoi An, mountain campfire gatherings in Sa Pa, and traditional water puppetry under torchlights. Every journey planned with TripBudget AI balances night cultural tours with daytime adventures.
+            Experience the mesmerizing lantern lights of Hoi An, mountain campfire gatherings in Sa Pa, and traditional water puppetry under torchlights. Every journey planned with TripBuddy balances night cultural tours with daytime adventures.
           </p>
 
           <div className="pt-2">
