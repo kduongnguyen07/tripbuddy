@@ -603,16 +603,50 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const acts = destServices.filter((i) => i.category === 'activity');
 
   const nights = Math.max(0, req.num_days - 1);
+  const stayPriority = req.priorities?.stay || 'normal';
+  const stayShare = stayPriority === 'very_important' || stayPriority === 'important' ? 0.50 : stayPriority === 'none' ? 0.30 : 0.40;
+  const maxStayBudget = Math.max(800000, req.total_budget * stayShare);
 
-  const rawStay = stays.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0] || {
-    id: `SRV_${targetCodes[0]}_001`,
-    destination_id: targetCodes[0],
-    category: 'accommodation',
-    sub_category: 'hotel',
-    name: `Khách sạn cao cấp tại ${dest.name}`,
-    price: 1200000,
-    rating: 4.8,
-  };
+  // Filter stays that fit within maxStayBudget for total nights
+  const budgetStays = stays.filter((s) => {
+    const formatted = formatDatasetService(s, req.people, nights);
+    return formatted.total_cost_vnd <= maxStayBudget;
+  });
+
+  let rawStay: any = null;
+  if (budgetStays.length > 0) {
+    // Pick highest rated stay within target stay budget
+    rawStay = [...budgetStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+  } else if (stays.length > 0) {
+    // Fallback 1: Filter stays that fit within 65% of total trip budget
+    const affordableStays = stays.filter((s) => {
+      const formatted = formatDatasetService(s, req.people, nights);
+      return formatted.total_cost_vnd <= req.total_budget * 0.65;
+    });
+
+    if (affordableStays.length > 0) {
+      rawStay = [...affordableStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+    } else {
+      // Fallback 2: Pick cheapest stay available
+      rawStay = [...stays].sort((a, b) => {
+        const costA = formatDatasetService(a, req.people, nights).total_cost_vnd;
+        const costB = formatDatasetService(b, req.people, nights).total_cost_vnd;
+        return costA - costB;
+      })[0];
+    }
+  }
+
+  if (!rawStay) {
+    rawStay = {
+      id: `SRV_${targetCodes[0]}_001`,
+      destination_id: targetCodes[0],
+      category: 'accommodation',
+      sub_category: 'hotel',
+      name: `Khách sạn cao cấp tại ${dest.name}`,
+      price: Math.min(1200000, Math.round(maxStayBudget / Math.max(1, nights))),
+      rating: 4.8,
+    };
+  }
 
   const lodgingService = formatDatasetService(rawStay, req.people, nights);
 
@@ -738,12 +772,25 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
     }
   });
 
-  const formatted = candidates.slice(0, 8).map((c) => formatDatasetService(c, req.plan_state.people, req.plan_state.num_days - 1));
+  const nights = Math.max(0, req.plan_state.num_days - 1);
+  const formatted = candidates.map((c) => formatDatasetService(c, req.plan_state.people, nights));
+
+  // Sort candidates: first those within budget, then by rating (highest first), then by cost (lowest first)
+  formatted.sort((a, b) => {
+    const costA = a.total_cost_vnd;
+    const costB = b.total_cost_vnd;
+    const fitsA = costA <= req.plan_state.total_budget;
+    const fitsB = costB <= req.plan_state.total_budget;
+    if (fitsA && !fitsB) return -1;
+    if (!fitsA && fitsB) return 1;
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    return costA - costB;
+  });
 
   return {
     status: 'success',
     target: req.target,
-    alternatives: formatted,
+    alternatives: formatted.slice(0, 8),
     data_version: 'v3.0_neon_database',
   };
 }
