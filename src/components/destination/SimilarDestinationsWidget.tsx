@@ -87,9 +87,6 @@ export const SimilarDestinationsWidget: React.FC<SimilarDestinationsWidgetProps>
                   alt={item.destination.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#0C0805]/80 backdrop-blur-md text-[#d4af37] font-extrabold text-[10px] border border-[#d4af37]/40">
-                  {item.similarity_score}% Tương tự
-                </span>
               </div>
 
               <div>
