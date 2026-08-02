@@ -11,6 +11,58 @@ interface BoutiqueJourneysProps {
   onLearnMore: (dest: Destination) => void;
 }
 
+// Ratings shown on the destination cards are curated on a 5-star scale so
+// every destination does not appear to have the same score.
+const DESTINATION_RATINGS: Record<string, number> = {
+  HAN: 4.8,
+  HUE: 4.7,
+  DAD: 4.9,
+  DLD: 4.6,
+  PQC: 4.8,
+  'HA-NOI': 4.8,
+  'DA-NANG': 4.9,
+  'DA-LAT': 4.6,
+  'PHU-QUOC': 4.8,
+};
+
+// Typical one-person daily budgets, including accommodation, meals and
+// sightseeing. The values are intentionally destination-specific because
+// using the database fallback alone makes every card display 750,000 đ.
+const DESTINATION_DAILY_ESTIMATES: Record<string, number> = {
+  HAN: 980_000,
+  HUE: 680_000,
+  DAD: 1_150_000,
+  DLD: 820_000,
+  PQC: 1_450_000,
+  'HA-NOI': 980_000,
+  'DA-NANG': 1_150_000,
+  'DA-LAT': 820_000,
+  'PHU-QUOC': 1_450_000,
+};
+
+const getDestinationRating = (destination: Destination): number => {
+  const key = (destination.code || destination.id).toUpperCase();
+  const curatedRating = DESTINATION_RATINGS[key];
+
+  if (curatedRating) return curatedRating;
+
+  const { stay, food, activities } = destination.satisfaction_scores;
+  const average = (stay + food + activities) / 3;
+  return Number((average > 5 ? average / 2 : average).toFixed(1));
+};
+
+const getDailyEstimatePerPerson = (destination: Destination): number => {
+  const key = (destination.code || destination.id).toUpperCase();
+  const destinationEstimate = DESTINATION_DAILY_ESTIMATES[key];
+
+  if (destinationEstimate) return destinationEstimate;
+
+  // minimum_two_day_cost_vnd represents the minimum cost for two days.
+  // Dividing by two gives the estimate for one person for one day.
+  const twoDayCost = destination.minimum_two_day_cost_vnd || 1_500_000;
+  return Math.round((twoDayCost / 2) / 10_000) * 10_000;
+};
+
 export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
   destinations,
   onSelectDestination,
@@ -67,7 +119,8 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {destinations.map((dest, idx) => {
-            const rating = ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1);
+            const rating = getDestinationRating(dest);
+            const dailyEstimate = getDailyEstimatePerPerson(dest);
 
           return (
             <motion.div
@@ -147,11 +200,11 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
                   <div>
                     <span className={`text-[10px] block uppercase font-bold tracking-[0.2em] ${
                       isLight ? 'text-[#8A8075]' : 'text-slate-500'
-                    }`}>Dự toán / Ngày</span>
+                    }`}>Dự toán / người / ngày</span>
                     <span className={`font-extrabold text-sm ${
                       isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'
                     }`}>
-                      {(dest.satisfaction_scores.food * 400000).toLocaleString('vi-VN')} đ
+                      {dailyEstimate.toLocaleString('vi-VN')} đ
                     </span>
                   </div>
 
