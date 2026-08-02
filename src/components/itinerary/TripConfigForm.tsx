@@ -53,7 +53,7 @@ const DESTINATION_META: Record<
     description: string;
     tags: string[];
     highlights: string[];
-    minBudgetPerDay: string;
+    estimatedBudgetPerDay: number;
     rating: number;
   }
 > = {
@@ -65,7 +65,7 @@ const DESTINATION_META: Record<
     description: 'Thủ đô ngàn năm văn hiến với Phố Cổ 36 phố phường, Hồ Gươm, Văn Miếu và ẩm thực đặc sản tinh tế.',
     tags: ['Thành Phố', 'Văn Hóa', 'Lịch Sử', 'Phố Cổ', 'Ẩm Thực'],
     highlights: ['Phố cổ Hà Nội', 'Văn Miếu Quốc Tử Giám', 'Hồ Hoàn Kiếm & Chùa Trấn Quốc', 'Phở bò gia truyền & Cà phê trứng'],
-    minBudgetPerDay: '800.000 đ/người',
+    estimatedBudgetPerDay: 800000,
     rating: 4.9,
   },
   hue: {
@@ -76,7 +76,7 @@ const DESTINATION_META: Record<
     description: 'Cố đô trầm mặc với Hoàng Thành, lăng tẩm triều Nguyễn, dòng Hương thơ mộng và nét văn hóa cung đình đặc sắc.',
     tags: ['Di Sản', 'Lịch Sử', 'Cố Đô', 'Sông Hương', 'Ẩm Thực Cung Đình'],
     highlights: ['Đại Nội Cố Đô Huế', 'Lăng Khải Định & Tự Đức', 'Chùa Thiên Mụ & Sông Hương', 'Bún bò Huế & Bánh nậm lọc'],
-    minBudgetPerDay: '750.000 đ/người',
+    estimatedBudgetPerDay: 750000,
     rating: 4.8,
   },
   'da-nang': {
@@ -87,7 +87,7 @@ const DESTINATION_META: Record<
     description: 'Thành phố biển năng động nổi bật với Cầu Vàng, Bà Nà Hills, chùa Linh Ứng và những bãi biển tuyệt đẹp.',
     tags: ['Biển', 'Thành Phố', 'Hiện Đại', 'Nghỉ Dưỡng', 'Bà Nà Hills'],
     highlights: ['Bãi biển Mỹ Khê', 'Sun World Ba Na Hills (Cầu Vàng)', 'Bán đảo Sơn Trà & Chùa Linh Ứng', 'Cầu Rồng phun lửa'],
-    minBudgetPerDay: '950.000 đ/người',
+    estimatedBudgetPerDay: 950000,
     rating: 4.9,
   },
   'da-lat': {
@@ -98,7 +98,7 @@ const DESTINATION_META: Record<
     description: 'Thành phố ngàn hoa quyến rũ với khí hậu mát lành, rừng thông, hồ thơ mộng và những đồi hoa rực rỡ.',
     tags: ['Núi Đồi', 'Thiên Nhiên', 'Khí Hậu Mát Mẻ', 'Mộng Mơ', 'Check-in'],
     highlights: ['Hồ Tuyền Lâm & Hồ Xuân Hương', 'Thác Datanla & Đỉnh Langbiang', 'Quảng trường Lâm Viên', 'Cà phê view đồi thông'],
-    minBudgetPerDay: '850.000 đ/người',
+    estimatedBudgetPerDay: 850000,
     rating: 4.9,
   },
   'phu-quoc': {
@@ -109,7 +109,7 @@ const DESTINATION_META: Record<
     description: 'Thiên đường biển ngọc với bãi cát trắng, làn nước trong xanh, hoàng hôn tuyệt đẹp và hải sản tươi ngon.',
     tags: ['Đảo', 'Biển', 'Sang Trọng', 'Nghỉ Dưỡng', 'Hoàng Hôn'],
     highlights: ['Bãi Sao & Bãi Khem', 'Cáp treo Hòn Thơm vượt biển', 'Grand World & VinWonders', 'Hoàng hôn Sunset Sanato'],
-    minBudgetPerDay: '1.200.000 đ/người',
+    estimatedBudgetPerDay: 1200000,
     rating: 4.9,
   },
 };
@@ -121,6 +121,13 @@ const DESTINATIONS: { id: DestinationId; code: string; name: string; region: str
   { id: 'DLD', code: 'DLD', name: 'Đà Lạt', region: 'Tây Nguyên' },
   { id: 'PQC', code: 'PQC', name: 'Phú Quốc', region: 'Miền Nam' },
 ];
+
+const PRIORITY_COST_MULTIPLIER: Record<PriorityLevel, number> = {
+  none: 0.95,
+  normal: 1,
+  important: 1.1,
+  very_important: 1.25,
+};
 
 
 const PRIORITY_OPTIONS: { value: PriorityLevel; label: string }[] = [
@@ -277,6 +284,17 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
   const metaKey = getMetaKey(destinationId);
   const staticMeta = DESTINATION_META[metaKey] || DESTINATION_META[destinationId] || DESTINATION_META['ha-noi'];
 
+  // Estimate the whole trip from the selected destination and current form inputs.
+  // The base rate is destination-specific; priorities adjust the relevant service mix.
+  const priorityMultiplier =
+    PRIORITY_COST_MULTIPLIER[priorities.stay] * 0.4 +
+    PRIORITY_COST_MULTIPLIER[priorities.food] * 0.35 +
+    PRIORITY_COST_MULTIPLIER[priorities.activity] * 0.25;
+  const estimatedPerPersonPerDay =
+    Math.round((staticMeta.estimatedBudgetPerDay * priorityMultiplier) / 10000) * 10000;
+  const estimatedTripCost =
+    estimatedPerPersonPerDay * Math.max(1, people) * Math.max(1, numDays);
+
   const currentMeta = {
     name: dbDest?.name || staticMeta.name,
     region: dbDest?.region || staticMeta.region,
@@ -287,9 +305,8 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     highlights: (dbDest?.activities && dbDest.activities.length > 0)
       ? dbDest.activities.slice(0, 4).map((a) => a.name)
       : staticMeta.highlights,
-    minBudgetPerDay: dbDest?.minimum_two_day_cost_vnd
-      ? `${Math.round(dbDest.minimum_two_day_cost_vnd / 2).toLocaleString('vi-VN')} đ/người`
-      : staticMeta.minBudgetPerDay,
+    estimatedPerPersonPerDay,
+    estimatedTripCost,
     rating: dbDest?.satisfaction_scores?.stay || staticMeta.rating,
   };
 
@@ -632,13 +649,21 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     </span>
                   </div>
 
-                  <span
-                    className={`text-xs font-bold ${
+                  <div
+                    className={`text-right text-xs font-bold leading-tight ${
                       isLight ? 'text-[#665E55]' : 'text-slate-400'
                     }`}
                   >
-                    Ước tính: <span className="text-emerald-500 font-black">{currentMeta.minBudgetPerDay}</span>
-                  </span>
+                    <div>
+                      Ước tính:{' '}
+                      <span className="text-emerald-500 font-black">
+                        {currentMeta.estimatedTripCost.toLocaleString('vi-VN')} đ/chuyến
+                      </span>
+                    </div>
+                    <span className="block mt-1 text-[10px] font-semibold opacity-80">
+                      ~{currentMeta.estimatedPerPersonPerDay.toLocaleString('vi-VN')} đ/người/ngày
+                    </span>
+                  </div>
                 </div>
 
                 <p
