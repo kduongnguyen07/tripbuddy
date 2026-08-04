@@ -361,7 +361,7 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
 
           {/* Gợi Ý Điểm Đến Tương Tự Theo Thẻ Tag Classification Widget */}
           <SimilarDestinationsWidget
-            currentDestinationId={materializedPlan.destination?.id || selectedDestination.id}
+            currentDestinationId={materializedPlan.destination?.id || selectedDestination?.id || 'HAN'}
             onSelectDestination={onSelectDestination}
           />
 
