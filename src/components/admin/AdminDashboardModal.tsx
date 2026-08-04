@@ -11,6 +11,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
+import { CoordinatePicker } from '../common/CoordinatePicker';
 import fullDatasetRaw from '../../../backend/tripbuddy_full_dataset_500.json';
 import { getServicesFromDb, addServiceDb, deleteServiceDb } from '../../services/neonDb';
 
@@ -164,6 +165,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       tags: tagsArray,
       image_url: editingService.image_url || '',
       booking_url: editingService.booking_url || '',
+      coordinates: Array.isArray(editingService.coordinates) && editingService.coordinates.length === 2
+        ? editingService.coordinates.map((value: any) => Number(value))
+        : null,
+      geocoding_status: editingService.geocoding_status || 'pending',
+      geocoding_confidence: editingService.geocoding_confidence == null ? null : Number(editingService.geocoding_confidence),
+      geocoded_address: editingService.geocoded_address || '',
     };
 
     try {
@@ -809,6 +816,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                           tags: ['luxury', 'scenic_view'],
                           image_url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
                           booking_url: '',
+                          coordinates: null,
+                          geocoding_status: 'pending',
                         });
                         setIsNewService(true);
                       }}
@@ -964,6 +973,46 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                           placeholder="Ví dụ: luxury, scenic_view, hotel, khach_san"
                         />
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3.5 bg-sky-50 rounded-2xl border border-sky-200">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Kinh Ä‘á»™ (Longitude)</label>
+                          <input
+                            type="number"
+                            step="0.000001"
+                            value={editingService.coordinates?.[0] ?? ''}
+                            onChange={(e) => setEditingService({
+                              ...editingService,
+                              coordinates: [Number(e.target.value), Number(editingService.coordinates?.[1] || 0)],
+                              geocoding_status: 'verified',
+                            })}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                            placeholder="105.8542"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">VÄ© Ä‘á»™ (Latitude)</label>
+                          <input
+                            type="number"
+                            step="0.000001"
+                            value={editingService.coordinates?.[1] ?? ''}
+                            onChange={(e) => setEditingService({
+                              ...editingService,
+                              coordinates: [Number(editingService.coordinates?.[0] || 0), Number(e.target.value)],
+                              geocoding_status: 'verified',
+                            })}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                            placeholder="21.0285"
+                          />
+                        </div>
+                        <div className="flex items-end text-[11px] text-sky-800 font-semibold">
+                          Tráº¡ng thÃ¡i: {editingService.geocoding_status || 'pending'}
+                        </div>
+                      </div>
+                      <CoordinatePicker
+                        coordinates={editingService.coordinates}
+                        onChange={(coordinates) => setEditingService({ ...editingService, coordinates, geocoding_status: 'verified' })}
+                      />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>

@@ -15,19 +15,22 @@ export const SafeImage: React.FC<SafeImageProps> = ({
   fallbackTitle,
   ...props
 }) => {
-  const [imgSrc, setImgSrc] = useState<string>(src);
-  const [hasError, setHasError] = useState<boolean>(false);
+  const fallback = () => getFallbackSvg(fallbackTitle || alt);
+  const validSource = typeof src === 'string' && src.trim().length > 0;
+  const [imgSrc, setImgSrc] = useState<string>(validSource ? src : fallback());
+  const [hasError, setHasError] = useState<boolean>(!validSource);
 
   // Sync imgSrc state when src prop changes (e.g. selecting a new destination)
   useEffect(() => {
-    setImgSrc(src);
-    setHasError(false);
-  }, [src]);
+    const nextIsValid = typeof src === 'string' && src.trim().length > 0;
+    setImgSrc(nextIsValid ? src : fallback());
+    setHasError(!nextIsValid);
+  }, [src, alt, fallbackTitle]);
 
   const handleError = () => {
     if (!hasError) {
       setHasError(true);
-      setImgSrc(getFallbackSvg(fallbackTitle || alt));
+      setImgSrc(fallback());
     }
   };
 

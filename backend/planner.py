@@ -6,6 +6,12 @@ from typing import Any, Iterable
 import pulp
 
 from backend.catalog import CatalogRepository, Service
+from backend.distance import (
+    annotate_event_distances,
+    coordinates,
+    estimated_distance_km,
+    haversine_distance_km,
+)
 from backend.schemas import (
     ApplySwapRequest,
     GeneratePlanRequest,
@@ -87,7 +93,11 @@ def _filter_services(services: Iterable[Service], category: str, preferences: Pr
     values = list(services)
     if not requested_tags:
         return values
-    return [service for service in values if requested_tags.intersection(tag.casefold() for tag in service.tags)]
+    matched = [service for service in values if requested_tags.intersection(tag.casefold() for tag in service.tags)]
+    # Older catalog rows use translated/category-specific tags (for example
+    # ``luxury`` instead of ``hotel``). Keep planning usable when a requested
+    # label has no exact representation in the current catalog.
+    return matched or values
 
 
 def _service_fits_slot(service: Service, slot: str) -> bool:
@@ -148,6 +158,80 @@ def _make_state(request: GeneratePlanRequest, selections: list[PlanSelection], c
         selections=selections,
         catalog_version=catalog.version,
     )
+
+
+def _distance_aware_improve(
+    selections: list[PlanSelection],
+    request: GeneratePlanRequest,
+    catalog: CatalogRepository,
+) -> list[PlanSelection]:
+    """Apply a small deterministic local search after the LP solution.
+
+    The LP remains responsible for hard budget/time constraints. For each
+    selected meal/activity we compare eligible alternatives using a 70/30
+    suitability-versus-distance score. This keeps the candidate space bounded
+    while allowing the optimizer to choose a nearer service when quality is
+    comparable. Straight-line distances are used consistently for proximity.
+    """
+    ordered_slots = {slot: index for index, slot in enumerate(MEAL_SLOTS + ACTIVITY_SLOTS)}
+    updated = list(selections)
+    nights = max(0, request.num_days - 1)
+    current_total = sum(
+        catalog.service(item.service_id).cost_for_group(request.people, nights if catalog.service(item.service_id).category == "stay" else 1)
+        for item in updated
+        if catalog.service(item.service_id)
+    )
+
+    def coordinates_for(selection: PlanSelection) -> tuple[float, float] | None:
+        service = catalog.service(selection.service_id)
+        return service.coordinates if service else None
+
+    def travel_distance(first: tuple[float, float], second: tuple[float, float]) -> float:
+        return haversine_distance_km(first, second)
+
+    for index, selection in enumerate(list(updated)):
+        current = catalog.service(selection.service_id)
+        if not current or current.category == "stay" or not current.coordinates:
+            continue
+        candidates = [
+            service for service in _eligible_services(catalog, request.destination_id, current.category, request.preferences)
+            if service.id != current.id
+            and service.time_window == selection.slot
+            and service.coordinates
+            and (service.category != "activity" or service.id not in {item.service_id for item in updated if item != selection})
+        ]
+        if not candidates:
+            continue
+
+        same_day = sorted(
+            [item for item in updated if item.day == selection.day and item.slot in ordered_slots],
+            key=lambda item: ordered_slots.get(item.slot, 99),
+        )
+        position = next((pos for pos, item in enumerate(same_day) if item == selection), -1)
+        previous_coords = coordinates_for(same_day[position - 1]) if position > 0 else None
+        next_coords = coordinates_for(same_day[position + 1]) if position + 1 < len(same_day) else None
+
+        def score(service: Service) -> float:
+            quality = max(0.0, min(1.0, service.rating / 5.0))
+            legs = []
+            if previous_coords:
+                legs.append(travel_distance(previous_coords, service.coordinates))
+            if next_coords:
+                legs.append(travel_distance(service.coordinates, next_coords))
+            distance_km = sum(legs) if legs else 0
+            proximity = 1.0 / (1.0 + distance_km / 5.0)
+            return 0.7 * quality + 0.3 * proximity
+
+        best = max(candidates, key=score)
+        if score(best) <= score(current) + 0.015:
+            continue
+        old_cost = current.cost_for_group(request.people, nights if current.category == "stay" else 1)
+        new_cost = best.cost_for_group(request.people, nights if best.category == "stay" else 1)
+        if current_total - old_cost + new_cost > request.total_budget:
+            continue
+        updated[index] = PlanSelection(service_id=best.id, day=selection.day, slot=selection.slot)
+        current_total = current_total - old_cost + new_cost
+    return updated
 
 
 def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> dict[str, Any]:
@@ -216,6 +300,7 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
         for (service_id, day, slot), variable in variables.items()
         if float(variable.value() or 0) > 0.5
     ]
+    selections = _distance_aware_improve(selections, request, catalog)
     return materialize_plan(_make_state(request, selections, catalog), catalog)
 
 
@@ -339,7 +424,7 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
                 "total_cost_vnd": stay_per_night,
                 "display_cost_vnd": stay_per_night,
             })
-        events = sorted(daily_events[day], key=lambda item: item["start_time"])
+        events = annotate_event_distances(daily_events[day])
         daily_costs = {
             "stay": stay_per_night if day <= nights else 0,
             "food": sum(event["total_cost_vnd"] for event in events if event["category"] == "food"),
@@ -390,6 +475,38 @@ def _find_target(state: PlanState, target: PlanSelection) -> PlanSelection:
     return match
 
 
+def _previous_event_coordinates(
+    state: PlanState,
+    target: PlanSelection,
+    catalog: CatalogRepository,
+) -> tuple[bool, tuple[float, float] | None]:
+    """Find the card immediately before a swappable item in its visible day."""
+    # Accommodation is rendered as the first card of each applicable day.
+    if target.day <= 0 or target.slot == "overnight":
+        return False, None
+
+    materialized = materialize_plan(state, catalog)
+    day_plan = next(
+        (item for item in materialized.get("daily_itinerary", []) if item.get("day") == target.day),
+        None,
+    )
+    if not day_plan:
+        return False, None
+
+    events = day_plan.get("events", [])
+    target_index = next(
+        (
+            index
+            for index, event in enumerate(events)
+            if event.get("id") == target.service_id and event.get("slot") == target.slot
+        ),
+        -1,
+    )
+    if target_index <= 0:
+        return False, None
+    return True, coordinates(events[target_index - 1].get("coordinates"))
+
+
 def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dict[str, Any]:
     state = request.plan_state
     _validate_state(state, catalog)
@@ -399,6 +516,7 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     occupied_activity_ids = {item.service_id for item in state.selections if item != target}
     current_total = sum(_selection_cost(item, state, catalog) for item in state.selections)
     target_cost = _selection_cost(target, state, catalog)
+    has_previous_event, previous_coordinates = _previous_event_coordinates(state, target, catalog)
     candidates = []
     for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
         if service.id == current.id or service.category != current.category or service.time_window != target.slot:
@@ -407,7 +525,13 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
             continue
         replacement_cost = service.cost_for_group(state.people, max(0, state.num_days - 1) if service.category == "stay" else 1)
         if current_total - target_cost + replacement_cost <= state.total_budget:
-            candidates.append(service.as_dict(state.people, max(0, state.num_days - 1) if service.category == "stay" else 1))
+            candidate = service.as_dict(state.people, max(0, state.num_days - 1) if service.category == "stay" else 1)
+            if has_previous_event:
+                candidate["distance_from_previous_km"] = estimated_distance_km(
+                    previous_coordinates,
+                    service.coordinates,
+                )
+            candidates.append(candidate)
     candidates.sort(key=lambda item: (-item["rating"], item["total_cost_vnd"]))
     return {"status": "success", "target": target.model_dump(), "alternatives": candidates[:5], **catalog_metadata(catalog)}
 

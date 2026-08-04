@@ -1,14 +1,8 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   ArrowLeft,
-  Sparkles,
   CheckCircle,
-  MapPin,
-  Calendar,
-  Wallet,
   Compass,
-  GripVertical,
 } from 'lucide-react';
 import {
   MaterializedPlan,
@@ -49,7 +43,11 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
       : null;
 
   const defaultFirstSelection: PlanSelection | null = defaultFirstService
-    ? { service_id: defaultFirstService.id, day: 1, slot: defaultFirstService.slot || 'morning' }
+    ? {
+        service_id: defaultFirstService.id,
+        day: defaultFirstService.slot === 'overnight' ? 0 : (plan.daily_itinerary?.[0]?.day || 1),
+        slot: defaultFirstService.slot || 'morning',
+      }
     : null;
 
   // Active Inspected Activity State for Left Column Top Panel
@@ -192,16 +190,18 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
           style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${leftWidth}%` : '100%' }}
           className="h-full overflow-y-auto p-6 space-y-6 custom-scrollbar shrink-0 border-b lg:border-b-0 border-amber-950/40"
         >
-          {/* 1. DEDICATED LIVE ACTIVITY INSPECTION & ILLUSTRATION VIEWER PANEL (REPLACES MAP) */}
-          <ActivityInspectionPanel
-            service={inspectedService}
-            destinationName={plan.destination?.name}
-            onOpenSwapModal={() => {
-              if (inspectedSelection && inspectedService) {
-                handleOpenSwapModal(inspectedSelection, inspectedService);
-              }
-            }}
-          />
+          {/* 1. SERVICE DETAIL */}
+          <div className="space-y-4">
+            <ActivityInspectionPanel
+              service={inspectedService}
+              destinationName={plan.destination?.name}
+              onOpenSwapModal={() => {
+                if (inspectedSelection && inspectedService) {
+                  handleOpenSwapModal(inspectedSelection, inspectedService);
+                }
+              }}
+            />
+          </div>
 
           {/* 2. Ở DƯỚI: THÔNG SỐ NGÂN SÁCH VÀ CHI TIÊU */}
           <BudgetDashboard plan={plan} />
@@ -251,10 +251,17 @@ export const PlanResultPage: React.FC<PlanResultPageProps> = ({
           onSwapApplied={(updatedPlan) => {
             onPlanUpdated(updatedPlan);
             if (targetSelection) {
-              const swappedDay = updatedPlan.daily_itinerary?.find((d) => d.day === targetSelection.day);
+              const swappedDay = targetSelection.slot === 'overnight'
+                ? updatedPlan.daily_itinerary?.find((d) => d.events.some((event) => event.slot === 'overnight'))
+                : updatedPlan.daily_itinerary?.find((d) => d.day === targetSelection.day);
               const swappedEv = swappedDay?.events.find((e) => e.slot === targetSelection.slot);
               if (swappedEv) {
                 setInspectedService(swappedEv);
+                setInspectedSelection({
+                  service_id: swappedEv.id,
+                  day: swappedEv.slot === 'overnight' ? 0 : targetSelection.day,
+                  slot: swappedEv.slot || targetSelection.slot,
+                });
               }
             }
           }}

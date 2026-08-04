@@ -80,11 +80,17 @@ export interface PlanServiceItem {
   meal_type?: string;
   source?: string;
 
+  /** [longitude, latitude] when the service has been geocoded. */
+  coordinates?: [number, number] | null;
+  geocoding_status?: 'pending' | 'auto_verified' | 'review_required' | 'verified' | 'failed';
+
   updated_at?: string;
   day?: number;
   slot?: string;
   start_time?: string;
   end_time?: string;
+  /** Straight-line distance from the previous card in the same day. */
+  distance_from_previous_km?: number | null;
 }
 
 export interface DailyItineraryDayCosts {

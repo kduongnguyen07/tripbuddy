@@ -18,7 +18,7 @@ function MainContent() {
   const { destinations, theme } = useData();
   const isLight = theme === 'light';
 
-  // Navigation & Routing State ('home' vs 'result') with localStorage persistence for F5 reload
+  // Navigation State ('home' vs 'result') with localStorage persistence for F5 reload
   const [activePlan, setActivePlan] = useState<MaterializedPlan | null>(() => {
     try {
       const saved = localStorage.getItem('tripbuddy_active_plan');

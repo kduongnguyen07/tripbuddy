@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from backend.catalog import CatalogRepository
-from backend.database import get_db, engine, Base
+from backend.database import get_db, engine, Base, ensure_service_coordinates_schema
 from backend.models import DestinationModel, ServiceModel
 
 from backend.planner import PlanInfeasible, apply_swap, generate_plan, get_similar_destinations, recommend_destinations, swap_options
@@ -30,6 +30,7 @@ ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "tripbuddy_admin_secret_2026")
 
 # Create DB tables automatically on server start
 Base.metadata.create_all(bind=engine)
+ensure_service_coordinates_schema()
 
 
 def get_catalog(db: Session = Depends(get_db)) -> CatalogRepository:
@@ -166,6 +167,10 @@ def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depe
         tags=service_data.get("tags", []),
         image_url=service_data.get("image_url", ""),
         booking_url=service_data.get("booking_url", ""),
+        coordinates=service_data.get("coordinates"),
+        geocoding_status=service_data.get("geocoding_status", "pending"),
+        geocoding_confidence=service_data.get("geocoding_confidence"),
+        geocoded_address=service_data.get("geocoded_address", ""),
     )
     db.merge(db_srv)
     db.commit()

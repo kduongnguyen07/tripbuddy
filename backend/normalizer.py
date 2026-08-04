@@ -118,6 +118,9 @@ def normalize_generated_records(records: list[dict[str, Any]], source_path: Path
             "tags": sorted(list(raw_tags)),
             "image_url": img,
             "affiliate_url": record.get("booking_url") or None,
+            "coordinates": record.get("coordinates"),
+            "geocoding_status": record.get("geocoding_status", "pending"),
+            "geocoding_confidence": record.get("geocoding_confidence"),
             "source": "mock-generated",
             "updated_at": updated_at,
         })
