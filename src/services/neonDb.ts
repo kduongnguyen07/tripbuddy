@@ -221,8 +221,8 @@ export async function addServiceDb(srv: any): Promise<any> {
   const subCat = srv.sub_category || srv.subtype || 'standard';
   const name = srv.name || 'Dịch vụ mới';
   const price = Number(srv.price || 0);
-  const rating = Number(srv.rating || 4.5);
-  const duration = Number(srv.duration_mins || 60);
+  const rating = Number(srv.rating ?? 4.5);
+  const duration = Number(srv.duration_mins ?? 60);
   const tags = JSON.stringify(Array.isArray(srv.tags) ? srv.tags : []);
   const img = srv.image_url || '';
   const booking = srv.booking_url || srv.affiliate_url || '';
@@ -256,6 +256,7 @@ export async function addServiceDb(srv: any): Promise<any> {
   } catch (err) {
 
     console.error('Error inserting service into Neon DB:', err);
+    throw err;
   }
 
   return { id, destination_id: destId, category: cat, sub_category: subCat, name, price, rating, duration_mins: duration, tags: Array.isArray(srv.tags) ? srv.tags : [], image_url: img, booking_url: booking, coordinates: srv.coordinates || null, geocoding_status: geocodingStatus };

@@ -74,8 +74,10 @@ function EventRow({ event }: { event: PlanServiceItem }) {
         style={{ width: 76, height: 76, borderRadius: 12, objectFit: 'cover', border: '1px solid #e7dcc9', background: '#f5efe6' }}
       />
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: '#9b7418', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{SLOT_LABELS[event.slot || ''] || event.slot || 'Hoạt động'}</div>
-        <div style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginTop: 4 }}>{event.name}</div>
+        {event.category !== 'activity' && (
+          <div style={{ color: '#9b7418', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{SLOT_LABELS[event.slot || ''] || event.slot || 'Hoạt động'}</div>
+        )}
+        <div style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginTop: event.category === 'activity' ? 0 : 4 }}>{event.name}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
           <span style={{ color: '#8e6512', fontSize: 11, fontWeight: 700 }}>★ {event.rating.toFixed(1)}</span>
           {tags.map((tag) => (
