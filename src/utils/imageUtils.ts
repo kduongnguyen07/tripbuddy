@@ -36,8 +36,8 @@ export function getFallbackSvg(title: string = "Việt Nam"): string {
     <polygon points="400,140 330,280 470,280" fill="url(#gold)" opacity="0.8"/>
     <polygon points="400,110 350,170 450,170" fill="url(#gold)"/>
     <path d="M 0 380 Q 200 300 400 380 T 800 380 L 800 500 L 0 500 Z" fill="#0C0805"/>
-    <text x="400" y="440" font-family="serif" font-size="24" font-weight="bold" fill="#ffffff" text-anchor="middle">${title}</text>
-    <text x="400" y="470" font-family="sans-serif" font-size="12" letter-spacing="3" fill="#d4af37" text-anchor="middle">DU LỊCH CAO CẤP VIỆT NAM</text>
+    <text x="400" y="440" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff" text-anchor="middle">${title}</text>
+    <text x="400" y="470" font-family="Arial, sans-serif" font-size="12" letter-spacing="3" fill="#d4af37" text-anchor="middle">DU LỊCH CAO CẤP VIỆT NAM</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
