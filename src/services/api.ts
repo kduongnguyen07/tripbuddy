@@ -27,6 +27,7 @@ import {
   getServiceIllustrationImage,
 } from './neonDb';
 import { API_BASE_URL } from '../config/apiConfig';
+import destinationsData from '../data/destinationsData.json';
 
 async function planningRequest<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -106,7 +107,13 @@ export async function getSimilarDestinationsApi(
 }
 
 async function generatePlanFallback(req: GeneratePlanRequest): Promise<MaterializedPlan> {
-  const destinations = await getDestinationsFromDb();
+  let destinations: Destination[];
+  try {
+    destinations = await getDestinationsFromDb();
+  } catch (err) {
+    console.warn('Fallback plan is using bundled destination data:', err);
+    destinations = destinationsData as unknown as Destination[];
+  }
   const dest = destinations.find(
     (d) => d.id === req.destination_id || d.code === req.destination_id
   ) || destinations[0] || {
