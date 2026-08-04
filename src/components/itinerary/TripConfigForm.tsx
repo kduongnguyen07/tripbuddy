@@ -489,7 +489,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                     isLight ? 'text-[#665E55]' : 'text-slate-400'
                   }`}
                 >
-                  Khi bật: Hệ thống tự động đề xuất 2–3 địa điểm lý tưởng theo mức ngân sách & số ngày của bạn
+                  Khi bật: Hệ thống ưu tiên địa điểm có chi phí tối thiểu sát với ngân sách & số ngày của bạn
                 </span>
               </div>
             </div>
@@ -589,6 +589,13 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
                           }`}
                         >
                           Ước tính tối thiểu: {rec.estimated_minimum_cost_vnd.toLocaleString('vi-VN')} đ
+                        </span>
+                        <span
+                          className={`text-[11px] block mt-0.5 ${
+                            isLight ? 'text-[#665E55]' : 'text-slate-400'
+                          }`}
+                        >
+                          Dự kiến còn: {rec.remaining_vnd.toLocaleString('vi-VN')} đ
                         </span>
                       </div>
                       <div className="text-right">
