@@ -1,22 +1,23 @@
 /**
- * API Service Wrapper for TripBuddy.
- * Talks to the FastAPI application, which owns the server-side database
- * connection. This keeps Neon credentials out of the browser bundle.
+ * API Service Wrapper.
+ *
+ * The browser calls only the FastAPI application. Database credentials remain
+ * on the server, while this module preserves image fallbacks for planning UI.
  */
 
 import {
-  GeneratePlanRequest,
-  RecommendDestinationsRequest,
-  SwapOptionsRequest,
   ApplySwapRequest,
-  MaterializedPlan,
-  DestinationRecommendation,
-  SwapOptionsResponse,
   Destination,
+  DestinationRecommendation,
+  GeneratePlanRequest,
+  MaterializedPlan,
+  RecommendDestinationsRequest,
   SimilarDestinationResult,
+  SwapOptionsRequest,
+  SwapOptionsResponse,
 } from '../types';
-
 import { API_BASE_URL } from '../config/apiConfig';
+import { getServiceIllustrationImage } from './neonDb';
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -37,58 +38,67 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
   return payload as T;
 }
 
+function normalizePlanningImages<T>(payload: T): T {
+  if (!payload || typeof payload !== 'object') return payload;
+  const value = payload as Record<string, any>;
+  const withFallbackImage = (item: any) => ({
+    ...item,
+    image_url: item?.image_url || getServiceIllustrationImage(item || {}),
+  });
+
+  if (Array.isArray(value.daily_itinerary)) {
+    value.daily_itinerary = value.daily_itinerary.map((day: any) => ({
+      ...day,
+      events: Array.isArray(day?.events) ? day.events.map(withFallbackImage) : day?.events,
+    }));
+  }
+  if (Array.isArray(value.alternatives)) {
+    value.alternatives = value.alternatives.map(withFallbackImage);
+  }
+  return payload;
+}
+
+async function planningRequest<T>(path: string, request: unknown): Promise<T> {
+  const payload = await apiRequest<T>(path, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+  return normalizePlanningImages(payload);
+}
+
 export async function fetchDestinationsApi(): Promise<Destination[]> {
   const payload = await apiRequest<{ destinations: Destination[] }>('/destinations');
   return payload.destinations || [];
 }
 
 export async function recommendDestinationsApi(
-  req: RecommendDestinationsRequest
+  req: RecommendDestinationsRequest,
 ): Promise<DestinationRecommendation[]> {
-  try {
-    const payload = await apiRequest<{ recommendations: DestinationRecommendation[] }>('/destinations/recommend', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    });
-    return payload.recommendations || [];
-  } catch (err) {
-    console.warn('Destination recommendation request failed:', err);
-    return [];
-  }
+  const response = await planningRequest<{ recommendations: DestinationRecommendation[] }>(
+    '/destinations/recommend',
+    req,
+  );
+  return response.recommendations || [];
 }
 
 export async function getSimilarDestinationsApi(
   destinationId: string,
-  limit: number = 3
+  limit = 3,
 ): Promise<SimilarDestinationResult[]> {
-  try {
-    const payload = await apiRequest<{ similar_destinations: SimilarDestinationResult[] }>(
-      `/destinations/${encodeURIComponent(destinationId)}/similar?limit=${limit}`,
-    );
-    return payload.similar_destinations || [];
-  } catch (err) {
-    console.warn('Similar destination request failed:', err);
-    return [];
-  }
+  const payload = await apiRequest<{ similar_destinations: SimilarDestinationResult[] }>(
+    `/destinations/${encodeURIComponent(destinationId)}/similar?limit=${limit}`,
+  );
+  return payload.similar_destinations || [];
 }
 
 export async function generatePlanApi(req: GeneratePlanRequest): Promise<MaterializedPlan> {
-  return apiRequest<MaterializedPlan>('/plans/generate', {
-    method: 'POST',
-    body: JSON.stringify(req),
-  });
+  return planningRequest<MaterializedPlan>('/plans/generate', req);
 }
 
 export async function getSwapOptionsApi(req: SwapOptionsRequest): Promise<SwapOptionsResponse> {
-  return apiRequest<SwapOptionsResponse>('/plans/swap-options', {
-    method: 'POST',
-    body: JSON.stringify(req),
-  });
+  return planningRequest<SwapOptionsResponse>('/plans/swap-options', req);
 }
 
 export async function applySwapApi(req: ApplySwapRequest): Promise<MaterializedPlan> {
-  return apiRequest<MaterializedPlan>('/plans/apply-swap', {
-    method: 'POST',
-    body: JSON.stringify(req),
-  });
+  return planningRequest<MaterializedPlan>('/plans/apply-swap', req);
 }
