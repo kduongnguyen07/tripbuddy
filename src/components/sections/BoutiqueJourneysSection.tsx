@@ -41,16 +41,12 @@ const DESTINATION_DAILY_ESTIMATES: Record<string, number> = {
 };
 
 const getDestinationRating = (destination: Destination): number => {
-  if (!destination) return 4.8;
-  const key = (destination.code || destination.id || '').toUpperCase();
+  const key = (destination.code || destination.id).toUpperCase();
   const curatedRating = DESTINATION_RATINGS[key];
 
   if (curatedRating) return curatedRating;
 
-  const scores = destination.satisfaction_scores || { stay: 9.0, food: 9.0, activities: 9.0 };
-  const stay = scores.stay || 9.0;
-  const food = scores.food || 9.0;
-  const activities = scores.activities || 9.0;
+  const { stay, food, activities } = destination.satisfaction_scores;
   const average = (stay + food + activities) / 3;
   return Number((average > 5 ? average / 2 : average).toFixed(1));
 };
@@ -193,7 +189,7 @@ export const BoutiqueJourneysSection: React.FC<BoutiqueJourneysProps> = ({
                     isLight ? 'text-[#665E55]' : 'text-slate-400'
                   }`}>
                     <MapPin className={`w-3.5 h-3.5 shrink-0 ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`} />
-                    <span className="truncate">{(dest.activities && dest.activities[0]?.name) || dest.name}</span>
+                    <span className="truncate">{dest.activities[0]?.name}</span>
                   </div>
                 </div>
 
