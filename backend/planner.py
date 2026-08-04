@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import ceil
 from typing import Any, Iterable
 
 
@@ -28,6 +29,7 @@ from backend.schemas import (
 PRIORITY_WEIGHTS = {"none": 0.5, "normal": 1.0, "important": 1.5, "very_important": 2.0}
 MEAL_SLOTS = ("breakfast", "lunch", "dinner")
 ACTIVITY_SLOTS = ("morning", "afternoon", "evening")
+DAY_SLOT_ORDER = ("breakfast", "morning", "lunch", "afternoon", "dinner", "evening")
 SLOT_TIMES = {
     "overnight": ("14:00", "08:00"),
     "breakfast": ("08:00", "09:00"),
@@ -45,6 +47,10 @@ SLOT_DURATIONS_HOURS = {
     "dinner": 1.5,
     "evening": 2.0,
 }
+TRAVEL_BUFFER_THRESHOLD_KM = 0.5
+MIN_TRAVEL_BUFFER_MINUTES = 15
+DAY_START_MINUTES = 6 * 60
+DAY_END_MINUTES = 23 * 60
 
 
 class PlanInfeasible(Exception):
@@ -102,10 +108,33 @@ def _filter_services(services: Iterable[Service], category: str, preferences: Pr
 
 def _service_fits_slot(service: Service, slot: str) -> bool:
     """A service must belong to its assigned fixed slot and fit inside it."""
-    if service.time_window != slot:
+    if service.category == "food":
+        serves_slot = slot in service.meal_slots if service.meal_slots else service.time_window == slot
+        if not serves_slot:
+            return False
+    elif service.time_window != slot:
         return False
     maximum_duration = SLOT_DURATIONS_HOURS.get(slot)
     return maximum_duration is None or service.duration_hours <= maximum_duration
+
+
+def _travel_buffer_minutes(first: Any, second: Any) -> int:
+    """Estimate the buffer required between two consecutive itinerary cards."""
+    distance_km = estimated_distance_km(first, second)
+    if distance_km is None or distance_km <= TRAVEL_BUFFER_THRESHOLD_KM:
+        return 0
+    # Use a conservative urban travel estimate (20 km/h) plus a short
+    # transition allowance, with 15 minutes as the minimum for a real move.
+    return max(MIN_TRAVEL_BUFFER_MINUTES, ceil(distance_km / 20 * 60 + 10))
+
+
+def _minutes_from_time(value: str) -> int:
+    hour, minute = (int(part) for part in value.split(":"))
+    return hour * 60 + minute
+
+
+def _time_from_minutes(minutes: int) -> str:
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _eligible_services(
@@ -127,7 +156,7 @@ def _minimum_cost(criteria: TripCriteria, catalog: CatalogRepository, destinatio
     stay = _eligible_services(catalog, destination_id, "stay", criteria.preferences)
     food = _eligible_services(catalog, destination_id, "food", criteria.preferences)
     activities = _eligible_services(catalog, destination_id, "activity", criteria.preferences)
-    food_by_slot = {slot: [item for item in food if item.time_window == slot] for slot in MEAL_SLOTS}
+    food_by_slot = {slot: [item for item in food if _service_fits_slot(item, slot)] for slot in MEAL_SLOTS}
     if nights and not stay:
         raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_accommodation")
     if any(not options for options in food_by_slot.values()):
@@ -178,7 +207,7 @@ def _distance_aware_improve(
     while allowing the optimizer to choose a nearer service when quality is
     comparable. Straight-line distances are used consistently for proximity.
     """
-    ordered_slots = {slot: index for index, slot in enumerate(MEAL_SLOTS + ACTIVITY_SLOTS)}
+    ordered_slots = {slot: index for index, slot in enumerate(DAY_SLOT_ORDER)}
     updated = list(selections)
     nights = max(0, request.num_days - 1)
     current_total = sum(
@@ -207,9 +236,13 @@ def _distance_aware_improve(
         candidates = [
             service for service in _eligible_services(catalog, request.destination_id, current.category, request.preferences)
             if service.id != current.id
-            and service.time_window == selection.slot
+            and _service_fits_slot(service, selection.slot)
             and service.coordinates
-            and (current.category == "food" or service.id not in {item.service_id for item in updated if item != selection})
+            # Local distance tuning must preserve the solver's no-repeat
+            # decision. Previously food venues were exempt here, allowing a
+            # nearer restaurant already used in another meal to re-enter the
+            # itinerary after the LP had selected distinct venues.
+            and service.id not in {item.service_id for item in updated if item != selection}
         ]
         if not candidates:
             continue
@@ -245,6 +278,120 @@ def _distance_aware_improve(
     return updated
 
 
+def _schedule_selections(
+    selections: list[PlanSelection],
+    catalog: CatalogRepository,
+) -> tuple[dict[tuple[int, str, str], tuple[str, str]], PlanSelection | None]:
+    """Schedule selections inside their fixed daytime windows.
+
+    The return value identifies the first event that cannot fit, rather than
+    allowing times to spill into the next slot or wrap past midnight.
+    """
+    slot_order = {slot: index for index, slot in enumerate(DAY_SLOT_ORDER)}
+    scheduled: dict[tuple[int, str, str], tuple[str, str]] = {}
+    ordered = sorted(
+        (item for item in selections if item.slot in slot_order),
+        key=lambda item: (item.day, slot_order[item.slot], item.service_id),
+    )
+    previous_end: dict[int, int] = {}
+    previous_coordinates: dict[int, tuple[float, float] | None] = {}
+
+    for selection in ordered:
+        service = catalog.service(selection.service_id)
+        if not service:
+            return {}, selection
+        slot_start, slot_end = SLOT_TIMES[selection.slot]
+        start_minutes = max(DAY_START_MINUTES, _minutes_from_time(slot_start))
+        if selection.day in previous_end:
+            start_minutes = max(
+                start_minutes,
+                previous_end[selection.day]
+                + _travel_buffer_minutes(previous_coordinates.get(selection.day), service.coordinates),
+            )
+        end_minutes = start_minutes + round(service.duration_hours * 60)
+        latest_end = min(DAY_END_MINUTES, _minutes_from_time(slot_end))
+        if end_minutes > latest_end:
+            return {}, selection
+        scheduled[(selection.day, selection.slot, selection.service_id)] = (
+            _time_from_minutes(start_minutes),
+            _time_from_minutes(end_minutes),
+        )
+        previous_end[selection.day] = end_minutes
+        previous_coordinates[selection.day] = service.coordinates
+
+    return scheduled, None
+
+
+def _repair_schedule_bounds(
+    selections: list[PlanSelection],
+    request: GeneratePlanRequest,
+    catalog: CatalogRepository,
+) -> list[PlanSelection] | None:
+    """Replace or remove events that would make the daytime schedule invalid."""
+    updated = list(selections)
+    nights = max(0, request.num_days - 1)
+
+    for _ in range(len(updated) * 2):
+        _, invalid_selection = _schedule_selections(updated, catalog)
+        if not invalid_selection:
+            return updated
+        current = catalog.service(invalid_selection.service_id)
+        if not current:
+            return None
+
+        # Optional activities are better omitted than shown at an impossible
+        # time. Every generated day still retains at least one activity.
+        activities_that_day = [
+            item for item in updated
+            if item.day == invalid_selection.day and catalog.service(item.service_id)
+            and catalog.service(item.service_id).category == "activity"
+        ]
+        if current.category == "activity" and len(activities_that_day) > 1:
+            updated.remove(invalid_selection)
+            continue
+        if len(activities_that_day) > 1:
+            # A meal cannot slide beyond its fixed time window. If a prior,
+            # optional activity caused the conflict, remove that activity
+            # before replacing the meal itself.
+            slot_order = {slot: index for index, slot in enumerate(DAY_SLOT_ORDER)}
+            earlier_activities = [
+                item for item in activities_that_day
+                if slot_order[item.slot] < slot_order[invalid_selection.slot]
+            ]
+            if earlier_activities:
+                updated.remove(max(earlier_activities, key=lambda item: slot_order[item.slot]))
+                continue
+
+        current_total = sum(_selection_cost(item, _make_state(request, updated, catalog), catalog) for item in updated)
+        selected_elsewhere_ids = {item.service_id for item in updated if item != invalid_selection}
+        replacement_options: list[tuple[float, PlanSelection]] = []
+        for candidate in _eligible_services(catalog, request.destination_id, current.category, request.preferences):
+            if (
+                candidate.id == current.id
+                or candidate.id in selected_elsewhere_ids
+                or not _service_fits_slot(candidate, invalid_selection.slot)
+            ):
+                continue
+            candidate_cost = candidate.cost_for_group(request.people, nights if candidate.category == "stay" else 1)
+            current_cost = current.cost_for_group(request.people, nights if current.category == "stay" else 1)
+            if current_total - current_cost + candidate_cost > request.total_budget:
+                continue
+            trial = [
+                PlanSelection(service_id=candidate.id, day=item.day, slot=item.slot)
+                if item == invalid_selection else item
+                for item in updated
+            ]
+            _, trial_invalid_selection = _schedule_selections(trial, catalog)
+            if not trial_invalid_selection:
+                replacement_options.append((candidate.rating, trial[updated.index(invalid_selection)]))
+        if not replacement_options:
+            return None
+        _, replacement = max(replacement_options, key=lambda item: item[0])
+        updated[updated.index(invalid_selection)] = replacement
+
+    return None
+
+
 def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> dict[str, Any]:
     _validate_destination(catalog, request.destination_id)
     minimum_cost = _minimum_cost(request, catalog, request.destination_id)
@@ -265,7 +412,7 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
 
     for day in range(1, request.num_days + 1):
         for slot in MEAL_SLOTS:
-            candidates = [service for service in food if service.time_window == slot]
+            candidates = [service for service in food if _service_fits_slot(service, slot)]
             for index, service in enumerate(candidates):
                 variables[(service.id, day, slot)] = pulp.LpVariable(f"food_{day}_{slot}_{index}", cat="Binary")
             problem += pulp.lpSum(variables[(service.id, day, slot)] for service in candidates) == 1
@@ -274,7 +421,14 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
             for index, service in enumerate(candidates):
                 variables[(service.id, day, slot)] = pulp.LpVariable(f"activity_{day}_{slot}_{index}", cat="Binary")
             if candidates:
-                problem += pulp.lpSum(variables[(service.id, day, slot)] for service in candidates) <= 1
+                # Activities in one period are scheduled consecutively. Their
+                # combined duration plus a 15-minute transition per move must
+                # fit inside that period. The rendered schedule may add more
+                # time for farther-apart places.
+                problem += pulp.lpSum(
+                    (service.duration_hours + MIN_TRAVEL_BUFFER_MINUTES / 60) * variables[(service.id, day, slot)]
+                    for service in candidates
+                ) <= SLOT_DURATIONS_HOURS[slot] + MIN_TRAVEL_BUFFER_MINUTES / 60
         day_activity_variables = [
             variables[(service.id, day, slot)]
             for slot in ACTIVITY_SLOTS
@@ -310,6 +464,35 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
                     ]
                     problem += pulp.lpSum(earlier_vars + later_vars) <= 1
 
+    # When every food venue supports every requested meal, require a distinct
+    # venue for every meal in the trip. This is the case for catalogue rows
+    # with ``meal_type=breakfast,lunch,dinner``. Otherwise retain the narrower
+    # per-slot rule, because time-specific venues cannot substitute each other.
+    fully_flexible_food = food and all(
+        all(_service_fits_slot(service, slot) for slot in MEAL_SLOTS)
+        for service in food
+    )
+    if fully_flexible_food and len(food) >= request.num_days * len(MEAL_SLOTS):
+        for service in food:
+            service_vars = [variable for key, variable in variables.items() if key[0] == service.id]
+            if service_vars:
+                problem += pulp.lpSum(service_vars) <= 1
+
+    # For time-specific venues, prevent repeats within each meal slot whenever
+    # the catalogue provides enough alternatives for all days.
+    for slot in MEAL_SLOTS:
+        candidates = [service for service in food if _service_fits_slot(service, slot)]
+        if len(candidates) < request.num_days:
+            continue
+        for service in candidates:
+            service_vars = [
+                variable
+                for key, variable in variables.items()
+                if key[0] == service.id and key[2] == slot
+            ]
+            if service_vars:
+                problem += pulp.lpSum(service_vars) <= 1
+
     def variable_cost(key: tuple[str, int, str]) -> int:
         service = catalog.service(key[0])
         assert service
@@ -333,6 +516,9 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
         if float(variable.value() or 0) > 0.5
     ]
     selections = _distance_aware_improve(selections, request, catalog)
+    selections = _repair_schedule_bounds(selections, request, catalog)
+    if selections is None:
+        raise PlanInfeasible(minimum_cost, request.total_budget, "no_feasible_schedule")
     return materialize_plan(_make_state(request, selections, catalog), catalog)
 
 
@@ -350,8 +536,8 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
     _validate_destination(catalog, state.destination_id)
     if state.catalog_version != catalog.version:
         raise ValueError("Catalog version has changed; generate the plan again")
-    seen_slots: set[tuple[int, str]] = set()
-    intervals_by_day: dict[int, list[tuple[float, float]]] = {}
+    slot_durations_by_day: dict[tuple[int, str], float] = {}
+    slot_selection_counts: dict[tuple[int, str], int] = {}
     accommodation_selections: list[PlanSelection] = []
     for selection in state.selections:
         service = catalog.service(selection.service_id)
@@ -377,49 +563,45 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
         else:
             raise ValueError("Unsupported service category")
 
-        if service.time_window != selection.slot:
+        if not _service_fits_slot(service, selection.slot):
             raise ValueError("Invalid plan_state selection")
         if selection.slot in MEAL_SLOTS + ACTIVITY_SLOTS:
             if not _service_fits_slot(service, selection.slot):
                 raise ValueError("Service duration does not fit its scheduled slot")
             marker = (selection.day, selection.slot)
-            if marker in seen_slots:
-                raise ValueError("Overlapping selections are not allowed")
-            seen_slots.add(marker)
-            start_time, _ = SLOT_TIMES[selection.slot]
-            start_hour, start_minute = (int(part) for part in start_time.split(":"))
-            interval_start = start_hour + start_minute / 60
-            interval_end = interval_start + service.duration_hours
-            for existing_start, existing_end in intervals_by_day.setdefault(selection.day, []):
-                if interval_start < existing_end and existing_start < interval_end:
-                    raise ValueError("Overlapping selections are not allowed")
-            intervals_by_day[selection.day].append((interval_start, interval_end))
+            slot_durations_by_day[marker] = slot_durations_by_day.get(marker, 0) + service.duration_hours
+            slot_selection_counts[marker] = slot_selection_counts.get(marker, 0) + 1
+            transition_hours = (
+                max(0, slot_selection_counts[marker] - 1) * MIN_TRAVEL_BUFFER_MINUTES / 60
+                if selection.slot in ACTIVITY_SLOTS
+                else 0
+            )
+            if slot_durations_by_day[marker] + transition_hours > SLOT_DURATIONS_HOURS[selection.slot] + 1e-9:
+                raise ValueError("Selections exceed the available time in this slot")
     if len(accommodation_selections) != (1 if state.num_days > 1 else 0):
         raise ValueError("Invalid accommodation selection")
     for day in range(1, state.num_days + 1):
-        if {item.slot for item in state.selections if item.day == day}.issuperset(MEAL_SLOTS) is False:
+        if any(sum(item.day == day and item.slot == slot for item in state.selections) != 1 for slot in MEAL_SLOTS):
             raise ValueError("Every day must contain three meals")
-        if not any(item.day == day and item.slot in ACTIVITY_SLOTS for item in state.selections):
-            raise ValueError("Every day must contain an activity")
     if sum(_selection_cost(item, state, catalog) for item in state.selections) > state.total_budget:
         raise ValueError("Plan exceeds total budget")
 
 
-def _end_time(start_time: str, duration_hours: float) -> str:
-    start_hour, start_minute = (int(part) for part in start_time.split(":"))
-    end_minutes = round((start_hour * 60 + start_minute) + duration_hours * 60)
-    return f"{(end_minutes // 60) % 24:02d}:{end_minutes % 60:02d}"
-
-
 def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, Any]:
     _validate_state(state, catalog)
+    scheduled_times, invalid_selection = _schedule_selections(state.selections, catalog)
+    if invalid_selection:
+        raise ValueError("Plan selections do not fit within the 06:00-23:00 schedule")
     destination = _validate_destination(catalog, state.destination_id)
     nights = max(0, state.num_days - 1)
     totals = {"stay": 0, "food": 0, "activity": 0}
     daily_events: dict[int, list[dict[str, Any]]] = {day: [] for day in range(1, state.num_days + 1)}
     lodging: Service | None = None
-
-    for selection in state.selections:
+    slot_order = {slot: index for index, slot in enumerate(DAY_SLOT_ORDER)}
+    for selection in sorted(
+        state.selections,
+        key=lambda item: (item.day, slot_order.get(item.slot, -1), item.service_id),
+    ):
         service = catalog.service(selection.service_id)
         assert service
         cost = _selection_cost(selection, state, catalog)
@@ -427,8 +609,7 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
         if service.category == "stay":
             lodging = service
             continue
-        start_time, _ = SLOT_TIMES[selection.slot]
-        end_time = _end_time(start_time, service.duration_hours)
+        start_time, end_time = scheduled_times[(selection.day, selection.slot, selection.service_id)]
         daily_events[selection.day].append({
             **service.as_dict(state.people),
             "day": selection.day,
@@ -480,6 +661,13 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
 
 
 def recommend_destinations(request: RecommendDestinationsRequest, catalog: CatalogRepository) -> dict[str, Any]:
+    """Rank feasible destinations by how closely their base itinerary uses the budget.
+
+    A destination with a very low minimum cost previously received a higher
+    score because it left more money unspent.  For the destination picker that
+    is the opposite of a useful budget fit: users expect the suggestions to
+    make practical use of the amount they entered without exceeding it.
+    """
     recommendations = []
     for destination in catalog.destinations():
         try:
@@ -487,13 +675,14 @@ def recommend_destinations(request: RecommendDestinationsRequest, catalog: Catal
         except PlanInfeasible:
             continue
         if minimum <= request.total_budget:
+            budget_usage_ratio = minimum / request.total_budget
             recommendations.append({
                 "destination": destination,
                 "estimated_minimum_cost_vnd": minimum,
                 "remaining_vnd": request.total_budget - minimum,
-                "fit_score": round(min(100, 100 * (request.total_budget - minimum) / request.total_budget + 40), 1),
+                "fit_score": round(100 * budget_usage_ratio, 1),
             })
-    recommendations.sort(key=lambda item: (-item["fit_score"], item["estimated_minimum_cost_vnd"]))
+    recommendations.sort(key=lambda item: (-item["fit_score"], -item["estimated_minimum_cost_vnd"]))
     return {"status": "success", "recommendations": recommendations[:request.limit], **catalog_metadata(catalog)}
 
 
@@ -544,10 +733,28 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     assert current
     current_total = sum(_selection_cost(item, state, catalog) for item in state.selections)
     target_cost = _selection_cost(target, state, catalog)
+    selected_elsewhere_ids = {item.service_id for item in state.selections if item != target}
     has_previous_event, previous_coordinates = _previous_event_coordinates(state, target, catalog)
+    occupied_slot_services = [
+        catalog.service(item.service_id)
+        for item in state.selections
+        if item != target
+        and item.day == target.day
+        and item.slot == target.slot
+        and catalog.service(item.service_id)
+    ]
+    occupied_slot_duration = sum(service.duration_hours for service in occupied_slot_services)
     candidates = []
     for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
-        if service.id == current.id or service.category != current.category or service.time_window != target.slot:
+        if service.id == current.id or service.category != current.category or not _service_fits_slot(service, target.slot):
+            continue
+        if (
+            target.slot in SLOT_DURATIONS_HOURS
+            and service.duration_hours
+            + occupied_slot_duration
+            + (MIN_TRAVEL_BUFFER_MINUTES / 60 if target.slot in ACTIVITY_SLOTS and occupied_slot_services else 0)
+            > SLOT_DURATIONS_HOURS[target.slot] + 1e-9
+        ):
             continue
         replacement_cost = service.cost_for_group(state.people, max(0, state.num_days - 1) if service.category == "stay" else 1)
         if current_total - target_cost + replacement_cost <= state.total_budget:
@@ -558,6 +765,12 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
                     service.coordinates,
                 )
             candidates.append(candidate)
+    # Keep a repeated venue available only as a last resort. This prevents a
+    # manual swap from reintroducing duplicates while still allowing a swap in
+    # sparse catalogues where no unused service can fill the requested slot.
+    unused_candidates = [item for item in candidates if item["id"] not in selected_elsewhere_ids]
+    if unused_candidates:
+        candidates = unused_candidates
     candidates.sort(key=lambda item: (-item["rating"], item["total_cost_vnd"]))
     return {"status": "success", "target": target.model_dump(), "alternatives": candidates[:5], **catalog_metadata(catalog)}
 
