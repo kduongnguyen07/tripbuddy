@@ -133,11 +133,13 @@ def get_destinations(catalog: CatalogRepository = Depends(get_catalog)):
 
 
 @app.post("/api/v1/destinations/recommend")
+@app.post("/destinations/recommend")
 def recommend(request: RecommendDestinationsRequest, catalog: CatalogRepository = Depends(get_catalog)):
     return recommend_destinations(request, catalog)
 
 
 @app.post("/api/v1/plans/generate")
+@app.post("/plans/generate")
 def generate(request: GeneratePlanRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
         return generate_plan(request, catalog)
@@ -148,6 +150,7 @@ def generate(request: GeneratePlanRequest, catalog: CatalogRepository = Depends(
 
 
 @app.post("/api/v1/plans/swap-options")
+@app.post("/plans/swap-options")
 def get_swap_options(request: SwapOptionsRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
         return swap_options(request, catalog)
@@ -156,6 +159,7 @@ def get_swap_options(request: SwapOptionsRequest, catalog: CatalogRepository = D
 
 
 @app.post("/api/v1/plans/apply-swap")
+@app.post("/plans/apply-swap")
 def apply_plan_swap(request: ApplySwapRequest, catalog: CatalogRepository = Depends(get_catalog)):
     try:
         return apply_swap(request, catalog)
