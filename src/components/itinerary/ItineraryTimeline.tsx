@@ -124,7 +124,7 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                     Ngày {dayPlan.day}: Khám Phá {plan.destination?.name?.split('-')[0].trim()}
                   </h4>
                   <span className={`text-xs font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                    {dayPlan.events.length} mục đã được lên lịch
+                    5 hoạt động & bữa ăn được lên lịch
                   </span>
                 </div>
               </div>
@@ -176,7 +176,6 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                   color: 'text-emerald-500',
                 };
                 const IconComponent = slotInfo.icon;
-                const showSlotLabel = event.category !== 'activity';
                 const selectionTarget: PlanSelection = {
                   service_id: event.id,
                   day: event.slot === 'overnight' ? 0 : dayPlan.day,
@@ -267,15 +266,13 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                       {/* Content Info */}
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          {showSlotLabel && (
                           <span
                             className={`text-[11px] font-extrabold flex items-center gap-1 ${slotInfo.color}`}
                           >
                             <IconComponent className="w-3.5 h-3.5" />
                             {slotInfo.label}
                           </span>
-                          )}
-                          <span className={showSlotLabel ? (isLight ? 'text-slate-400' : 'text-slate-600') : 'hidden'}>•</span>
+                          <span className={isLight ? 'text-slate-400' : 'text-slate-600'}>•</span>
                           <span className="text-amber-500 font-bold text-xs flex items-center gap-0.5">
                             <Star className="w-3 h-3 fill-amber-400 text-amber-500" /> {event.rating}
                           </span>

@@ -32,7 +32,6 @@ class Service:
     coordinates: tuple[float, float] | None = None
     geocoding_status: str = "pending"
     geocoding_confidence: float | None = None
-    meal_slots: tuple[str, ...] = ()
 
     def cost_for_group(self, people: int, nights: int = 1) -> int:
         return self.price_vnd * (ceil(people / self.capacity) * nights if self.price_unit == "per_room" else people)
@@ -61,20 +60,10 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
     tags_lower = [t.lower() for t in tags_list]
     time_window = "anytime"
 
-    meal_slots: tuple[str, ...] = ()
     if cat == "stay":
         time_window = "overnight"
     elif cat == "food":
-        meal_slots = tuple(
-            slot
-            for slot in ("breakfast", "lunch", "dinner")
-            if slot in {value.strip().lower() for value in (s.meal_type or "").split(",")}
-        )
-        if meal_slots:
-            # Keep a stable default for legacy consumers. The planner uses
-            # ``meal_slots`` so a venue can be scheduled at every meal it serves.
-            time_window = meal_slots[0]
-        elif any(t in tags_lower for t in ("breakfast", "sang", "sang_sang")):
+        if any(t in tags_lower for t in ("breakfast", "sang", "sang_sang")):
             time_window = "breakfast"
         elif any(t in tags_lower for t in ("lunch", "trua", "an_trua")):
             time_window = "lunch"
@@ -129,7 +118,6 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
         coordinates=coordinates,
         geocoding_status=s.geocoding_status or "pending",
         geocoding_confidence=float(s.geocoding_confidence) if s.geocoding_confidence is not None else None,
-        meal_slots=meal_slots,
     )
 
 
