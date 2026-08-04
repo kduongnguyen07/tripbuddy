@@ -28,7 +28,8 @@ export const DestinationDetailSection: React.FC<DestinationDetailSectionProps> =
 
   if (!destination) return null;
 
-  const rating = ((destination.satisfaction_scores.stay + destination.satisfaction_scores.food + destination.satisfaction_scores.activities) / 3).toFixed(1);
+  const scores = destination.satisfaction_scores || { stay: 9.0, food: 9.0, activities: 9.0, transport: 9.0 };
+  const rating = (((scores.stay || 9.0) + (scores.food || 9.0) + (scores.activities || 9.0)) / 3).toFixed(1);
 
   return (
     <AnimatePresence mode="wait">
