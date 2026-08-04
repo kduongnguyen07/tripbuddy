@@ -144,6 +144,22 @@ function sortByPreference<T extends { rating?: number; price?: number; price_vnd
   });
 }
 
+function matchingServicesOrFallback<T extends { rating?: number; price?: number; price_vnd?: number; tags?: any; sub_category?: string; subtype?: string; name?: string }>(
+  items: T[],
+  styles: string[],
+  minimumMatches: number = 1,
+): T[] {
+  const ordered = sortByPreference(items, styles);
+  if (!styles.length) return ordered;
+
+  const matching = ordered.filter((item) => preferenceScore(item, styles) > 0);
+  if (matching.length >= minimumMatches) return matching;
+
+  // Preserve all matching choices first, but add the non-matching catalogue
+  // only when it cannot fill the required distinct itinerary slots.
+  return [...matching, ...ordered.filter((item) => preferenceScore(item, styles) === 0)];
+}
+
 function validCoordinates(value: unknown): [number, number] | null {
   if (!Array.isArray(value) || value.length !== 2) return null;
   const longitude = Number(value[0]);
@@ -421,7 +437,7 @@ export async function recommendDestinationsDb(
   const services = await getServicesFromDb();
   const limit = req.limit || 3;
 
-  return dests.map((d) => {
+  const recommendations = dests.map((d) => {
     const minCost = Math.round((d.minimum_two_day_cost_vnd || 1500000) * (req.num_days / 2) * Math.max(1, req.people * 0.7));
     const estimated = Math.min(req.total_budget, Math.max(minCost, Math.round(req.total_budget * 0.75)));
     const remaining = Math.max(0, req.total_budget - estimated);
@@ -458,12 +474,18 @@ export async function recommendDestinationsDb(
       estimated_minimum_cost_vnd: estimated,
       remaining_vnd: remaining,
       fit_score: fitScore,
+      preference_matches: preferenceMatches,
     };
-  }).sort((a, b) => {
+  });
+
+  // Do not dilute destination suggestions with unrelated places while at
+  // least one destination can satisfy a selected preference.
+  const preferenceCompatible = recommendations.filter((recommendation) => recommendation.preference_matches > 0);
+  return (preferenceCompatible.length > 0 ? preferenceCompatible : recommendations).sort((a, b) => {
     if (b.fit_score !== a.fit_score) return b.fit_score - a.fit_score;
     if (b.remaining_vnd !== a.remaining_vnd) return b.remaining_vnd - a.remaining_vnd;
     return a.destination.name.localeCompare(b.destination.name, 'vi');
-  }).slice(0, limit);
+  }).slice(0, limit).map(({ preference_matches, ...recommendation }) => recommendation);
 }
 
 export async function getSimilarDestinationsDb(
@@ -816,8 +838,11 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
   let rawStay: any = null;
   if (budgetStays.length > 0) {
-    // A matching lodging style wins before rating when it stays in budget.
-    rawStay = sortByPreference(budgetStays, preferencesForCategory(req.preferences, 'stay'))[0];
+    // Use a selected lodging style exclusively whenever one fits the stay budget.
+    rawStay = matchingServicesOrFallback(
+      budgetStays,
+      preferencesForCategory(req.preferences, 'stay'),
+    )[0];
   } else if (stays.length > 0) {
     // Fallback 1: Filter stays that fit within 65% of total trip budget
     const affordableStays = stays.filter((s) => {
@@ -826,7 +851,10 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     });
 
     if (affordableStays.length > 0) {
-      rawStay = sortByPreference(affordableStays, preferencesForCategory(req.preferences, 'stay'))[0];
+      rawStay = matchingServicesOrFallback(
+        affordableStays,
+        preferencesForCategory(req.preferences, 'stay'),
+      )[0];
     } else {
       // Fallback 2: Pick cheapest stay available
       rawStay = [...stays].sort((a, b) => {
@@ -851,13 +879,14 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
   const lodgingService = formatDatasetService(rawStay, req.people, nights);
 
-  const foodSource = sortByPreference(
-    foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []),
+  const foodSource = matchingServicesOrFallback(
+    foods,
     preferencesForCategory(req.preferences, 'food'),
   );
-  const actSource = sortByPreference(
-    acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []),
+  const actSource = matchingServicesOrFallback(
+    acts,
     preferencesForCategory(req.preferences, 'activity'),
+    req.num_days,
   );
 
   const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
