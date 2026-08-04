@@ -106,6 +106,49 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
 
 # Admin secret key cho các API bảo mật (seed, backup)
 ADMIN_SECRET_KEY=your_secret_key_here
+
+# Geocoding (required to populate service coordinates)
+GEOCODER_BASE_URL=https://us1.locationiq.com/v1/search
+GEOCODER_API_KEY=your_locationiq_api_key
+GEOCODER_USER_AGENT=TripBuddy/1.0 (contact: you@example.com)
+GEOCODER_ALLOWED_DESTINATIONS=HAN,HUE,DAD,DLD,PQC
+GEOCODER_MAX_DISTANCE_KM=90
+```
+
+After applying `backend/migrations/001_service_coordinates.sql`, run the
+geocoder once in dry-run mode and then with `--apply` to populate service
+coordinates. Manual coordinate edits in the admin service form are stored as
+`verified`. The default geocoder scope is limited to TripBuddy's five
+destinations (Hà Nội, Huế, Đà Nẵng, Đà Lạt and Phú Quốc); each query is also
+bounded around its destination center and checked again by distance before it
+is stored. Keep the LocationIQ key on the backend only.
+
+### Lấy LocationIQ Access Token
+
+1. Mở [trang đăng ký LocationIQ](https://my.locationiq.com/register), tạo tài
+   khoản và xác minh email.
+2. Đăng nhập dashboard, mở tab **API Access Tokens** và bấm **Show Token**.
+3. Sao chép token vào `GEOCODER_API_KEY` trong file `.env`. Không đặt token vào
+   frontend hoặc các biến `VITE_*`.
+4. Nếu backend production có IP tĩnh, nên giới hạn token theo IP trong phần
+   **View/Update** của token. LocationIQ khuyến nghị dùng IP restriction cho
+   request phát sinh từ server; không dùng cách này cho request trực tiếp từ
+   trình duyệt.
+
+Tài liệu chính thức: [lấy Access Token](https://docs.locationiq.com/docs/locationiq-access-token),
+[bảo mật token](https://docs.locationiq.com/docs/authentication), và [Forward
+Geocoding](https://docs.locationiq.com/docs/quickstart-convert-address-to-coordinates).
+
+Sau khi điền token, chạy thử:
+
+```powershell
+.venv\Scripts\python.exe -m backend.geocode_services --limit 10
+```
+
+Nếu kết quả đúng, chạy toàn bộ các dịch vụ chưa có tọa độ:
+
+```powershell
+.venv\Scripts\python.exe -m backend.geocode_services --apply
 ```
 
 ## 📡 API Reference

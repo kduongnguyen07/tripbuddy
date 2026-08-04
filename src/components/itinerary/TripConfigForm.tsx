@@ -234,7 +234,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [suggestDestination, totalBudget, people, numDays, priorities]);
+  }, [suggestDestination, totalBudget, people, numDays, priorities, preferences]);
 
   const isSameDest = (id1: string, id2: string): boolean => {
     const c1 = (id1 || '').toUpperCase();
@@ -432,7 +432,7 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
       </div>
 
       {/* Validation / Infeasible Warning Alert */}
-      {(validationError || infeasibleError || isBudgetTooLow) && (
+      {(validationError || isBudgetTooLow) && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -444,7 +444,6 @@ export const TripConfigForm: React.FC<TripConfigFormProps> = ({
               Thông Báo Ngân Sách & Dữ Liệu
             </span>
             {validationError ||
-              infeasibleError ||
               'Ngân sách hiện tại không đủ để xây dựng lịch trình phù hợp. Vui lòng tăng ngân sách hoặc rút ngắn thời gian chuyến đi.'}
           </div>
         </motion.div>

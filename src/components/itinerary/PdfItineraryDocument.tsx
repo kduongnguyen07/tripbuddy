@@ -1,5 +1,6 @@
-import type { CSSProperties, RefObject } from 'react';
+import type { RefObject, SyntheticEvent } from 'react';
 import type { DailyItineraryDayPlan, MaterializedPlan, PlanServiceItem } from '../../types';
+import { getFallbackSvg } from '../../utils/imageUtils';
 
 interface PdfItineraryDocumentProps {
   plan: MaterializedPlan;
@@ -8,209 +9,204 @@ interface PdfItineraryDocumentProps {
 
 const PAGE_WIDTH = 794;
 const PAGE_HEIGHT = 1123;
-const DAYS_PER_PAGE = 2;
-const MAX_EVENTS_PER_PAGE = 14;
-const PDF_FONT = '"Segoe UI", Arial, sans-serif';
 
 const SLOT_LABELS: Record<string, string> = {
-  overnight: 'Lưu trú',
+  overnight: 'Lưu trú đêm',
   breakfast: 'Ăn sáng',
   morning: 'Tham quan sáng',
   lunch: 'Ăn trưa',
   afternoon: 'Hoạt động chiều',
   dinner: 'Ăn tối',
   evening: 'Trải nghiệm tối',
-  check_in: 'Nhận phòng',
-  check_out: 'Trả phòng',
 };
 
-function formatVnd(value?: number): string {
+function formatVnd(value: number | undefined): string {
   return `${Math.max(0, value || 0).toLocaleString('vi-VN')} đ`;
 }
 
 function destinationName(plan: MaterializedPlan): string {
-  return plan.destination?.name?.split('-')[0].trim() || 'Việt Nam';
+  return plan.destination?.name?.split('-')[0].trim() || 'Chuyến đi Việt Nam';
 }
 
-function cleanEventName(name: string): string {
-  return name.replace(/^[^\p{L}\p{N}]+/u, '').trim() || name;
+function safeImageSource(source: string | undefined, title: string): string {
+  return source?.trim() || getFallbackSvg(title);
 }
 
-function groupDays(days: DailyItineraryDayPlan[]): DailyItineraryDayPlan[][] {
-  const pages: DailyItineraryDayPlan[][] = [];
-  let current: DailyItineraryDayPlan[] = [];
-  let currentEventCount = 0;
-
-  days.forEach((day) => {
-    const wouldExceedDayLimit = current.length >= DAYS_PER_PAGE;
-    const wouldExceedEventLimit = current.length > 0 && currentEventCount + day.events.length > MAX_EVENTS_PER_PAGE;
-
-    if (wouldExceedDayLimit || wouldExceedEventLimit) {
-      pages.push(current);
-      current = [];
-      currentEventCount = 0;
-    }
-
-    current.push(day);
-    currentEventCount += day.events.length;
-  });
-
-  if (current.length > 0) pages.push(current);
-  return pages;
+function replaceWithFallback(event: SyntheticEvent<HTMLImageElement>, title: string) {
+  const image = event.currentTarget;
+  image.onerror = null;
+  image.src = getFallbackSvg(title);
 }
-
-const pageStyle: CSSProperties = {
-  boxSizing: 'border-box',
-  width: PAGE_WIDTH,
-  height: PAGE_HEIGHT,
-  padding: '30px 38px 24px',
-  display: 'flex',
-  flexDirection: 'column',
-  background: '#ffffff',
-  color: '#26231f',
-  fontFamily: PDF_FONT,
-  fontSize: 11,
-  lineHeight: 1.3,
-  overflow: 'hidden',
-  overflowWrap: 'anywhere',
-  WebkitFontSmoothing: 'antialiased',
-};
-
-const labelStyle: CSSProperties = {
-  color: '#8e6512',
-  fontSize: 8,
-  fontWeight: 700,
-  letterSpacing: '0.07em',
-  lineHeight: 1.35,
-  textTransform: 'uppercase',
-};
 
 function PageFooter({ page, totalPages }: { page: number; totalPages: number }) {
   return (
-    <div style={{ marginTop: 'auto', paddingTop: 7, borderTop: '1px solid #e8e3da', display: 'flex', justifyContent: 'space-between', color: '#847d73', fontSize: 8, lineHeight: 1.2 }}>
-      <span>TripBuddy - Lịch trình tối ưu theo ngân sách</span>
+    <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #e8dfcf', display: 'flex', justifyContent: 'space-between', color: '#766d61', fontSize: 11 }}>
+      <span>TripBuddy - Cẩm nang lịch trình</span>
       <span>Trang {page}/{totalPages}</span>
     </div>
   );
 }
 
-function DocumentHeader({ plan, days }: { plan: MaterializedPlan; days: DailyItineraryDayPlan[] }) {
-  const firstDay = days[0]?.day;
-  const lastDay = days[days.length - 1]?.day;
-  const range = firstDay === lastDay ? `Ngày ${firstDay}` : `Ngày ${firstDay}-${lastDay}`;
-
+function BudgetCard({ label, value, accent }: { label: string; value: number | undefined; accent: string }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'end', paddingBottom: 8, borderBottom: '2px solid #b98a25' }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={labelStyle}>TRIPBUDDY / LỊCH TRÌNH {range}</div>
-        <div style={{ marginTop: 2, fontSize: 20, fontWeight: 700, lineHeight: 1.15 }}>{destinationName(plan)}</div>
-      </div>
-      <div style={{ color: '#6f685f', fontSize: 9, lineHeight: 1.2, whiteSpace: 'nowrap' }}>Bản tóm tắt A4</div>
-    </div>
-  );
-}
-
-function TripSummary({ plan }: { plan: MaterializedPlan }) {
-  const budget = plan.budget;
-  const trip = plan.trip;
-  return (
-    <div style={{ marginTop: 9, padding: '8px 10px', border: '1px solid #e7dfd1', borderRadius: 8, background: '#fcfaf6' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.25fr 1.25fr 1.1fr', gap: 10, alignItems: 'start' }}>
-        <SummaryItem label="Chuyến đi" value={`${trip?.people || 0} khách / ${trip?.num_days || 0} ngày`} />
-        <SummaryItem label="Ngân sách" value={formatVnd(budget?.total_vnd)} />
-        <SummaryItem label="Đã phân bổ" value={formatVnd(budget?.allocated_vnd)} />
-        <SummaryItem label="Còn dư" value={formatVnd(budget?.remaining_vnd)} />
-      </div>
-      <div style={{ marginTop: 6, paddingTop: 5, borderTop: '1px solid #ece5d9', color: '#6f685f', fontSize: 8.5, lineHeight: 1.3 }}>
-        Phân bổ: Lưu trú {budget?.allocations.stay.percentage || 0}% · Ẩm thực {budget?.allocations.food.percentage || 0}% · Hoạt động {budget?.allocations.activity.percentage || 0}%
-      </div>
-    </div>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ ...labelStyle, color: '#7d756a', fontSize: 7.5 }}>{label}</div>
-      <div style={{ marginTop: 2, color: '#3a352f', fontSize: 11, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    <div style={{ border: '1px solid #ece3d5', borderRadius: 14, padding: '14px 15px', background: '#fffcf7' }}>
+      <div style={{ color: '#766d61', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: accent, fontFamily: 'Georgia, serif', fontSize: 21, fontWeight: 700, marginTop: 5 }}>{formatVnd(value)}</div>
     </div>
   );
 }
 
 function EventRow({ event }: { event: PlanServiceItem }) {
+  const tags = event.tags.slice(0, 3);
   const price = event.display_cost_vnd ?? event.total_cost_vnd;
-  const slot = SLOT_LABELS[event.slot || ''] || event.slot || 'Hoạt động';
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '76px minmax(0, 1fr) 94px', columnGap: 10, alignItems: 'center', minHeight: 39, padding: '4px 0', borderBottom: '1px solid #eee9e1' }}>
-      <div style={{ minWidth: 0, color: '#625c54', fontSize: 9, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-        <strong style={{ color: '#8e6512', fontSize: 10 }}>{event.start_time || '08:00'}</strong>
-        <span style={{ color: '#aaa196', margin: '0 3px' }}>-</span>
-        {event.end_time || '09:00'}
+    <div style={{ display: 'grid', gridTemplateColumns: '74px 76px 1fr 102px', gap: 14, alignItems: 'center', minHeight: 105, padding: '12px 0', borderBottom: '1px solid #eee7dc' }}>
+      <div>
+        <div style={{ color: '#9b7418', fontSize: 14, fontWeight: 800 }}>{event.start_time || '08:00'}</div>
+        <div style={{ color: '#887f73', fontSize: 11, marginTop: 3 }}>đến {event.end_time || '09:00'}</div>
       </div>
+      <img
+        src={safeImageSource(event.image_url, event.name)}
+        crossOrigin="anonymous"
+        onError={(event) => replaceWithFallback(event, event.currentTarget.alt)}
+        alt={event.name}
+        style={{ width: 76, height: 76, borderRadius: 12, objectFit: 'cover', border: '1px solid #e7dcc9', background: '#f5efe6' }}
+      />
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: '#2b2824', fontSize: 11.5, fontWeight: 700, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{cleanEventName(event.name)}</div>
-        <div style={{ marginTop: 1, color: '#837a6e', fontSize: 8.5, lineHeight: 1.25 }}>
-          <span style={{ color: '#8e6512', fontWeight: 700 }}>{slot}</span>
-          <span style={{ margin: '0 5px', color: '#c2b9ac' }}>·</span>
-          ★ {Number(event.rating || 0).toFixed(1)}
+        <div style={{ color: '#9b7418', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{SLOT_LABELS[event.slot || ''] || event.slot || 'Hoạt động'}</div>
+        <div style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginTop: 4 }}>{event.name}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
+          <span style={{ color: '#8e6512', fontSize: 11, fontWeight: 700 }}>★ {event.rating.toFixed(1)}</span>
+          {tags.map((tag) => (
+            <span key={tag} style={{ color: '#665c50', background: '#f4eddf', borderRadius: 99, fontSize: 10, padding: '2px 7px' }}>#{tag}</span>
+          ))}
         </div>
       </div>
-      <div style={{ minWidth: 0, color: '#765710', fontSize: 10.5, fontWeight: 700, lineHeight: 1.2, textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-        {price === 0 ? 'Miễn phí' : formatVnd(price)}
-      </div>
+      <div style={{ color: '#8e6512', fontFamily: 'Georgia, serif', fontSize: 15, fontWeight: 700, textAlign: 'right' }}>{price === 0 ? 'Miễn phí' : formatVnd(price)}</div>
     </div>
   );
 }
 
-function DaySection({ day }: { day: DailyItineraryDayPlan }) {
+function DayPage({ plan, day, page, totalPages }: { plan: MaterializedPlan; day: DailyItineraryDayPlan; page: number; totalPages: number }) {
+  const name = destinationName(plan);
+  const dayTotal = day.events.reduce((total, event) => total + (event.display_cost_vnd ?? event.total_cost_vnd), 0);
+
   return (
-    <section style={{ marginTop: 11 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'baseline', gap: 12, paddingBottom: 5, borderBottom: '1px solid #cba448' }}>
-        <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <h2 style={{ margin: 0, color: '#26231f', fontFamily: PDF_FONT, fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>Ngày {day.day}</h2>
-          <span style={{ color: '#81786d', fontSize: 8.5, lineHeight: 1.2 }}>{day.events.length} mục lịch trình</span>
+    <section data-pdf-page style={pageStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #d2a83b', paddingBottom: 18 }}>
+        <div>
+          <div style={eyebrowStyle}>TRIPBUDDY / LỊCH TRÌNH CHI TIẾT</div>
+          <h2 style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 31, lineHeight: 1.05, margin: '8px 0 0' }}>Ngày {day.day} - Khám phá {name}</h2>
         </div>
-        <div style={{ color: '#8e6512', fontSize: 12, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVnd(day.total_cost_vnd)}</div>
+        <div style={{ color: '#8e6512', fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, textAlign: 'right' }}>{formatVnd(dayTotal)}</div>
       </div>
-      <div>{day.events.map((event) => <EventRow key={`${event.id}-${event.slot}`} event={event} />)}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 7, marginTop: 5 }}>
-        <DayCost label="Lưu trú" value={day.costs.stay} />
-        <DayCost label="Ẩm thực" value={day.costs.food} />
-        <DayCost label="Hoạt động" value={day.costs.activity} />
+
+      <div style={{ color: '#766d61', fontSize: 12, marginTop: 11 }}>Lịch trình được tối ưu theo ngân sách và các ưu tiên đã chọn.</div>
+
+      <div style={{ marginTop: 18 }}>
+        {day.events.map((event) => <EventRow key={`${event.id}-${event.slot}`} event={event} />)}
       </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 18 }}>
+        <BudgetCard label="Lưu trú" value={day.costs.stay} accent="#3e86a9" />
+        <BudgetCard label="Ẩm thực" value={day.costs.food} accent="#9b7418" />
+        <BudgetCard label="Hoạt động" value={day.costs.activity} accent="#397d60" />
+      </div>
+
+      <PageFooter page={page} totalPages={totalPages} />
     </section>
   );
 }
 
-function DayCost({ label, value }: { label: string; value: number }) {
-  return (
-    <div style={{ boxSizing: 'border-box', height: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, padding: '0 8px', borderRadius: 6, background: '#f7f0df', color: '#71695f', fontSize: 8.5, lineHeight: '14px' }}>
-      <span style={{ display: 'flex', height: '100%', alignItems: 'center' }}>{label}</span>
-      <strong style={{ display: 'flex', height: '100%', alignItems: 'center', color: '#38332e', fontSize: 9.5, lineHeight: '14px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVnd(value)}</strong>
-    </div>
-  );
-}
+const pageStyle = {
+  boxSizing: 'border-box' as const,
+  width: PAGE_WIDTH,
+  height: PAGE_HEIGHT,
+  padding: '58px 56px 42px',
+  display: 'flex',
+  flexDirection: 'column' as const,
+  background: '#fffdf9',
+  color: '#2a241e',
+  fontFamily: 'Arial, sans-serif',
+  overflow: 'hidden',
+};
+
+const eyebrowStyle = {
+  color: '#9b7418',
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: '0.13em',
+};
 
 export function PdfItineraryDocument({ plan, documentRef }: PdfItineraryDocumentProps) {
   const itinerary = plan.daily_itinerary || [];
-  const pages = groupDays(itinerary);
-  const totalPages = pages.length;
+  const budget = plan.budget;
+  const trip = plan.trip;
+  const totalPages = itinerary.length + 1;
+  const name = destinationName(plan);
 
   return (
     <div ref={documentRef} aria-hidden="true" style={{ position: 'fixed', left: -10000, top: 0, width: PAGE_WIDTH, pointerEvents: 'none', zIndex: -1 }}>
-      {pages.map((days, pageIndex) => (
-        <section key={days.map((day) => day.day).join('-')} data-pdf-page lang="vi" style={pageStyle}>
-          <DocumentHeader plan={plan} days={days} />
-          {pageIndex === 0 && <TripSummary plan={plan} />}
-          <div>{days.map((day) => <DaySection key={day.day} day={day} />)}</div>
-          {pageIndex === totalPages - 1 && (
-            <div style={{ marginTop: 8, color: '#7a6a43', fontSize: 8, lineHeight: 1.3 }}>
-              Lưu ý: Chưa bao gồm chi phí di chuyển và các chi phí phát sinh khác.
-            </div>
-          )}
-          <PageFooter page={pageIndex + 1} totalPages={totalPages} />
-        </section>
+      <section data-pdf-page style={pageStyle}>
+        <div style={{ position: 'relative', height: 270, borderRadius: 20, overflow: 'hidden', background: '#20180f' }}>
+          <img
+            src={safeImageSource(plan.destination?.hero_image, name)}
+            crossOrigin="anonymous"
+            onError={(event) => replaceWithFallback(event, event.currentTarget.alt)}
+            alt={name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.62 }}
+          />
+          <div style={{ position: 'absolute', inset: 0, padding: 30, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'linear-gradient(0deg, rgba(24,17,10,0.88), rgba(24,17,10,0.05))' }}>
+            <div style={{ color: '#f2cb64', fontSize: 11, fontWeight: 800, letterSpacing: '0.14em' }}>TRIPBUDDY</div>
+            <h1 style={{ color: '#ffffff', fontFamily: 'Georgia, serif', fontSize: 42, lineHeight: 1.04, margin: '7px 0 0' }}>Cẩm nang lịch trình {name}</h1>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 20 }}>
+          <div style={tripInfoStyle}><strong>{trip?.people || 0}</strong><span>Khách du lịch</span></div>
+          <div style={tripInfoStyle}><strong>{trip?.num_days || itinerary.length}</strong><span>Ngày trải nghiệm</span></div>
+          <div style={tripInfoStyle}><strong>{trip?.nights || 0}</strong><span>Đêm lưu trú</span></div>
+        </div>
+
+        <div style={{ marginTop: 26 }}>
+          <div style={eyebrowStyle}>TỔNG QUAN NGÂN SÁCH</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginTop: 10 }}>
+            <BudgetCard label="Tổng ngân sách" value={budget?.total_vnd} accent="#8e6512" />
+            <BudgetCard label="Đã phân bổ" value={budget?.allocated_vnd} accent="#397d60" />
+            <BudgetCard label="Còn dư" value={budget?.remaining_vnd} accent="#3e86a9" />
+            <BudgetCard label="Bình quân / người" value={budget?.per_person_vnd} accent="#7057a3" />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 21, padding: '15px 17px', borderRadius: 14, background: '#f7f0e3', border: '1px solid #ead9b6' }}>
+          <div style={{ ...eyebrowStyle, fontSize: 10 }}>PHÂN BỔ THEO HẠNG MỤC</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 9, fontSize: 12 }}>
+            <div><strong style={{ color: '#3e86a9' }}>Lưu trú</strong><br />{formatVnd(budget?.allocations.stay.amount_vnd)} ({budget?.allocations.stay.percentage || 0}%)</div>
+            <div><strong style={{ color: '#9b7418' }}>Ẩm thực</strong><br />{formatVnd(budget?.allocations.food.amount_vnd)} ({budget?.allocations.food.percentage || 0}%)</div>
+            <div><strong style={{ color: '#397d60' }}>Hoạt động</strong><br />{formatVnd(budget?.allocations.activity.amount_vnd)} ({budget?.allocations.activity.percentage || 0}%)</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 18, color: '#6e5b2d', fontSize: 12, lineHeight: 1.5 }}>Lưu ý: Lịch trình này chưa bao gồm chi phí di chuyển và các chi phí phát sinh khác.</div>
+        <PageFooter page={1} totalPages={totalPages} />
+      </section>
+
+      {itinerary.map((day, index) => (
+        <DayPage key={day.day} plan={plan} day={day} page={index + 2} totalPages={totalPages} />
       ))}
     </div>
   );
 }
+
+const tripInfoStyle = {
+  border: '1px solid #e9dfd0',
+  borderRadius: 13,
+  padding: '13px 14px',
+  background: '#fffaf2',
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: 4,
+  color: '#766d61',
+  fontSize: 11,
+};

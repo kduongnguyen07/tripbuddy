@@ -22,6 +22,11 @@ interface SwapItemModalProps {
   onSwapApplied: (updatedPlan: MaterializedPlan) => void;
 }
 
+const formatDistance = (distance: number): string => {
+  const formatted = distance.toFixed(1).replace(/\.0$/, '');
+  return `Khoảng cách: ${formatted} Km`;
+};
+
 export const SwapItemModal: React.FC<SwapItemModalProps> = ({
   isOpen,
   onClose,
@@ -156,6 +161,11 @@ export const SwapItemModal: React.FC<SwapItemModalProps> = ({
               <span className={`text-xs font-bold block ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
                 {targetService.total_cost_vnd.toLocaleString('vi-VN')} đ
               </span>
+              {typeof targetService.distance_from_previous_km === 'number' && (
+                <span className={`text-[11px] font-semibold block mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                  {formatDistance(targetService.distance_from_previous_km)}
+                </span>
+              )}
             </div>
           </div>
 
@@ -210,6 +220,11 @@ export const SwapItemModal: React.FC<SwapItemModalProps> = ({
                             {candidate.duration_hours} giờ
                           </span>
                         </div>
+                        {typeof candidate.distance_from_previous_km === 'number' && (
+                          <span className={`text-[11px] font-semibold block mt-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                            {formatDistance(candidate.distance_from_previous_km)}
+                          </span>
+                        )}
                       </div>
                     </div>
 

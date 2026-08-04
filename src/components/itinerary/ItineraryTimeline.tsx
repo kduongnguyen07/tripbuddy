@@ -42,6 +42,11 @@ const SLOT_LABELS: Record<string, { label: string; icon: any; color: string }> =
   evening: { label: 'Trải Nghiệm Tối', icon: Ticket, color: 'text-indigo-400' },
 };
 
+const formatDistance = (distance: number): string => {
+  const formatted = distance.toFixed(1).replace(/\.0$/, '');
+  return `Khoảng cách: ${formatted} Km`;
+};
+
 
 export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
   plan,
@@ -129,7 +134,9 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                   Tổng chi phí Ngày {dayPlan.day}
                 </span>
                 <span className={`font-black text-base font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
-                  {dayPlan.total_cost_vnd.toLocaleString('vi-VN')} đ
+                  {dayPlan.events
+                    .reduce((total, event) => total + (event.display_cost_vnd ?? event.total_cost_vnd), 0)
+                    .toLocaleString('vi-VN')} đ
                 </span>
               </div>
             </div>
@@ -171,7 +178,7 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                 const IconComponent = slotInfo.icon;
                 const selectionTarget: PlanSelection = {
                   service_id: event.id,
-                  day: dayPlan.day,
+                  day: event.slot === 'overnight' ? 0 : dayPlan.day,
                   slot: event.slot || 'morning',
                 };
                 const isSelected = activeServiceId === event.id;
@@ -205,7 +212,7 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                     >
                       {/* Hide 08:00-09:00 clock only for the main Overnight stay card */}
                       {event.slot === 'overnight' ? (
-                        <div className="w-20 shrink-0 text-left">
+                        <div className="w-36 shrink-0 text-left">
                           <span className={`text-xs font-bold flex items-center gap-1 font-sans ${isLight ? 'text-sky-600' : 'text-sky-400'}`}>
                             <Hotel className="w-3.5 h-3.5" />
                             Lưu Trú
@@ -213,9 +220,14 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                           <span className={`text-[10px] font-bold block ${isLight ? 'text-sky-700' : 'text-sky-300'}`}>
                             🌙 Cả ngày
                           </span>
+                          {typeof event.distance_from_previous_km === 'number' && (
+                            <span className={`text-[10px] block whitespace-nowrap ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                              {formatDistance(event.distance_from_previous_km)}
+                            </span>
+                          )}
                         </div>
                       ) : (
-                        <div className="w-20 shrink-0 text-left">
+                        <div className="w-36 shrink-0 text-left">
                           <span className={`text-xs font-bold flex items-center gap-1 font-sans ${
                             event.slot === 'check_out' ? 'text-amber-500' : event.slot === 'check_in' ? 'text-emerald-500' : isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'
                           }`}>
@@ -225,6 +237,11 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                           <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
                             đến {event.end_time || (event.slot === 'check_out' ? '12:30' : event.slot === 'check_in' ? '14:30' : '09:00')}
                           </span>
+                          {typeof event.distance_from_previous_km === 'number' && (
+                            <span className={`text-[10px] block whitespace-nowrap ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                              {formatDistance(event.distance_from_previous_km)}
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -291,9 +308,9 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                           {event.price_unit === 'per_room' ? 'Chi phí / đêm' : 'Chi phí'}
                         </span>
                         <span className={`font-black text-sm font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
-                          {(event.display_cost_vnd || event.total_cost_vnd) === 0
+                          {(event.display_cost_vnd ?? event.total_cost_vnd) === 0
                             ? 'Miễn Phí'
-                            : `${(event.display_cost_vnd || event.total_cost_vnd).toLocaleString('vi-VN')} đ`}
+                            : `${(event.display_cost_vnd ?? event.total_cost_vnd).toLocaleString('vi-VN')} đ`}
                         </span>
                       </div>
 

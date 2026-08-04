@@ -9,12 +9,29 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Automatically load .env file from project root if present
 root_dir = Path(__file__).resolve().parent.parent
 env_file = root_dir / ".env"
+
+
+def _is_placeholder_env_value(value: str) -> bool:
+    """Allow a checked-in shell placeholder to fall back to the local .env.
+
+    Real deployment environment variables still take precedence. This only
+    replaces values that clearly came from the example commands/files.
+    """
+    normalized = value.strip().lower()
+    return normalized in {
+        "your_locationiq_key",
+        "replace-with-your-locationiq-access-token",
+        "your_secret_key_here",
+        "change-this-local-secret",
+    }
+
+
 if env_file.exists():
     try:
         for line in env_file.read_text(encoding="utf-8").splitlines():
@@ -23,7 +40,8 @@ if env_file.exists():
                 key, val = line.split("=", 1)
                 key = key.strip()
                 val = val.strip().strip("'").strip('"')
-                if key not in os.environ:
+                current_value = os.environ.get(key)
+                if current_value is None or _is_placeholder_env_value(current_value):
                     os.environ[key] = val
     except Exception as e:
         print(f"Warning loading .env file: {e}")
@@ -63,6 +81,30 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+
+def ensure_service_coordinates_schema() -> None:
+    """Add coordinate columns to an existing installation without requiring Alembic.
+
+    The checked-in SQL migration remains the source of truth for Neon. This
+    small compatibility step keeps local SQLite databases created by older
+    TripBuddy versions usable after an upgrade.
+    """
+    inspector = inspect(engine)
+    if "services" not in inspector.get_table_names():
+        return
+    existing = {column["name"] for column in inspector.get_columns("services")}
+    additions = {
+        "coordinates": "JSON",
+        "geocoding_status": "VARCHAR(24) DEFAULT 'pending'",
+        "geocoding_confidence": "FLOAT",
+        "geocoded_address": "TEXT",
+        "geocoded_at": "DATETIME",
+    }
+    with engine.begin() as connection:
+        for name, definition in additions.items():
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE services ADD COLUMN {name} {definition}"))
 
 
 def get_db() -> Generator:

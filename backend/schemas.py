@@ -14,10 +14,13 @@ class PriorityLevel(str, Enum):
     very_important = "very_important"
 
 
-LodgingStyle = Literal["casual", "check_in", "luxury", "nature", "scenic_view", "street_food"]
+LodgingStyle = Literal[
+    "hotel", "resort", "homestay", "villa", "hostel", "casual",
+    "check_in", "luxury", "nature", "scenic_view", "street_food",
+]
 FoodStyle = Literal[
     "asian_food", "casual", "fast_food", "fine_dining", "healthy",
-    "local_specialty", "scenic_view", "seafood", "vegetarian", "western_food",
+    "local_specialty", "buffet", "street_food", "cafe", "scenic_view", "seafood", "vegetarian", "western_food",
 ]
 ActivityStyle = Literal[
     "check_in", "culture", "entertainment", "history", "nature",

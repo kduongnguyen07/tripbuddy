@@ -29,6 +29,9 @@ class Service:
     affiliate_url: str | None
     source: str
     updated_at: str
+    coordinates: tuple[float, float] | None = None
+    geocoding_status: str = "pending"
+    geocoding_confidence: float | None = None
 
     def cost_for_group(self, people: int, nights: int = 1) -> int:
         return self.price_vnd * (ceil(people / self.capacity) * nights if self.price_unit == "per_room" else people)
@@ -41,6 +44,9 @@ class Service:
             "capacity": self.capacity, "duration_hours": self.duration_hours, "time_window": self.time_window,
             "rating": self.rating, "tags": list(self.tags), "image_url": self.image_url,
             "affiliate_url": self.affiliate_url, "source": self.source, "updated_at": self.updated_at,
+            "coordinates": list(self.coordinates) if self.coordinates else None,
+            "geocoding_status": self.geocoding_status,
+            "geocoding_confidence": self.geocoding_confidence,
         }
 
 
@@ -79,6 +85,19 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
             hash_idx = sum(ord(c) for c in s.id) % 3
             time_window = ("morning", "afternoon", "evening")[hash_idx]
 
+    raw_coordinates = s.coordinates
+    if isinstance(raw_coordinates, str):
+        try:
+            raw_coordinates = json.loads(raw_coordinates)
+        except Exception:
+            raw_coordinates = None
+    coordinates = None
+    if isinstance(raw_coordinates, (list, tuple)) and len(raw_coordinates) == 2:
+        try:
+            coordinates = (float(raw_coordinates[0]), float(raw_coordinates[1]))
+        except (TypeError, ValueError):
+            coordinates = None
+
     return Service(
         id=s.id,
         destination_id=s.destination_id,
@@ -96,6 +115,9 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
         affiliate_url=s.booking_url,
         source="neon_postgres",
         updated_at="2026-07-26",
+        coordinates=coordinates,
+        geocoding_status=s.geocoding_status or "pending",
+        geocoding_confidence=float(s.geocoding_confidence) if s.geocoding_confidence is not None else None,
     )
 
 
