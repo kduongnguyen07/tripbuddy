@@ -144,6 +144,68 @@ function sortByPreference<T extends { rating?: number; price?: number; price_vnd
   });
 }
 
+function validCoordinates(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const longitude = Number(value[0]);
+  const latitude = Number(value[1]);
+  return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+}
+
+function estimatedDistanceKm(first: unknown, second: unknown): number | null {
+  const firstCoordinates = validCoordinates(first);
+  const secondCoordinates = validCoordinates(second);
+  if (!firstCoordinates || !secondCoordinates) return null;
+
+  const [lon1, lat1] = firstCoordinates;
+  const [lon2, lat2] = secondCoordinates;
+  const radians = Math.PI / 180;
+  const latitudeDelta = (lat2 - lat1) * radians;
+  const longitudeDelta = (lon2 - lon1) * radians;
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(longitudeDelta / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, haversine)))) * 10) / 10;
+}
+
+function selectRouteAwareActivity(
+  candidates: PlanServiceItem[],
+  anchor: PlanServiceItem | null,
+  styles: string[],
+): PlanServiceItem | null {
+  if (!candidates.length) return null;
+
+  return [...candidates].sort((a, b) => {
+    // A preference match always wins; distance only chooses the better route
+    // between activities with the same preference relevance.
+    const preferenceDifference = preferenceScore(b, styles) - preferenceScore(a, styles);
+    if (preferenceDifference !== 0) return preferenceDifference;
+
+    const distanceA = anchor ? estimatedDistanceKm(anchor.coordinates, a.coordinates) : null;
+    const distanceB = anchor ? estimatedDistanceKm(anchor.coordinates, b.coordinates) : null;
+    if (distanceA !== null && distanceB !== null && distanceA !== distanceB) return distanceA - distanceB;
+    if (distanceA !== null && distanceB === null) return -1;
+    if (distanceA === null && distanceB !== null) return 1;
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    return a.total_cost_vnd - b.total_cost_vnd;
+  })[0];
+}
+
+function annotateRouteDistances(events: PlanServiceItem[]): PlanServiceItem[] {
+  let previousCoordinates: [number, number] | null = null;
+
+  return events.map((event, index) => {
+    const currentCoordinates = validCoordinates(event.coordinates);
+    const distanceFromPrevious = index === 0
+      ? undefined
+      : estimatedDistanceKm(previousCoordinates, currentCoordinates);
+    previousCoordinates = currentCoordinates;
+
+    return distanceFromPrevious === undefined
+      ? event
+      : { ...event, distance_from_previous_km: distanceFromPrevious };
+  });
+}
+
 function parseDestinationRow(row: any): Destination {
   const hero = row.hero_image || '';
   return {
@@ -676,13 +738,14 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
     };
 
     dayEvents.sort((a, b) => parseTimeToMinutes(a.start_time, a.slot) - parseTimeToMinutes(b.start_time, b.slot));
+    const routedEvents = annotateRouteDistances(dayEvents);
 
-    const dayFoodTotal = dayEvents.filter((e) => e.category === 'food').reduce((sum, e) => sum + e.total_cost_vnd, 0);
-    const dayActTotal = dayEvents.filter((e) => e.category === 'activity' || (e.category as string) === 'activities').reduce((sum, e) => sum + e.total_cost_vnd, 0);
+    const dayFoodTotal = routedEvents.filter((e) => e.category === 'food').reduce((sum, e) => sum + e.total_cost_vnd, 0);
+    const dayActTotal = routedEvents.filter((e) => e.category === 'activity' || (e.category as string) === 'activities').reduce((sum, e) => sum + e.total_cost_vnd, 0);
 
     return {
       day: dayNum,
-      events: dayEvents,
+      events: routedEvents,
       costs: {
         stay: stayCostForDay,
         food: dayFoodTotal,
@@ -858,19 +921,32 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     selections.push({ service_id: lodgingService.id, day: 0, slot: 'overnight' });
   }
 
+  const remainingActivities = [...uniqueActivities];
+  const activityStyles = preferencesForCategory(req.preferences, 'activity');
   for (let idx = 0; idx < req.num_days; idx++) {
     const dayNum = idx + 1;
     const bfast = getNextUniqueFood('breakfast');
     const lunch = getNextUniqueFood('lunch');
     const dinner = getNextUniqueFood('dinner');
 
-    // Every day receives a different primary activity. Add a second activity
-    // only when another unused option exists, so activities never cross days.
-    const dailyActivity = uniqueActivities[idx];
-    const secondaryActivity = uniqueActivities[req.num_days + idx];
+    // Every day receives different activities. Within the same preference
+    // score, pick the closest next stop to shorten the day's route.
+    const dailyActivity = selectRouteAwareActivity(remainingActivities, bfast, activityStyles);
+    if (dailyActivity) {
+      remainingActivities.splice(remainingActivities.findIndex((activity) => activity.id === dailyActivity.id), 1);
+    }
+    const remainingPrimaryDays = req.num_days - dayNum;
+    const secondaryActivity = remainingActivities.length > remainingPrimaryDays
+      ? selectRouteAwareActivity(remainingActivities, dailyActivity, activityStyles)
+      : null;
+    if (secondaryActivity) {
+      remainingActivities.splice(remainingActivities.findIndex((activity) => activity.id === secondaryActivity.id), 1);
+    }
 
     selections.push({ service_id: bfast.id, day: dayNum, slot: 'breakfast' });
-    selections.push({ service_id: dailyActivity.id, day: dayNum, slot: 'morning' });
+    if (dailyActivity) {
+      selections.push({ service_id: dailyActivity.id, day: dayNum, slot: 'morning' });
+    }
     selections.push({ service_id: lunch.id, day: dayNum, slot: 'lunch' });
     if (secondaryActivity) {
       selections.push({ service_id: secondaryActivity.id, day: dayNum, slot: 'afternoon' });
@@ -929,7 +1005,29 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
   });
 
   const nights = Math.max(0, req.plan_state.num_days - 1);
-  const formatted = candidates.map((c) => formatDatasetService(c, req.plan_state.people, nights));
+  const routeOrder: Record<string, number> = {
+    breakfast: 1,
+    morning: 2,
+    lunch: 3,
+    afternoon: 4,
+    dinner: 5,
+    evening: 6,
+  };
+  const targetOrder = routeOrder[targetSlot] || 0;
+  const previousSelection = (req.plan_state.selections || [])
+    .filter((selection) => selection.day === req.target.day && (routeOrder[selection.slot] || 0) < targetOrder)
+    .sort((a, b) => (routeOrder[b.slot] || 0) - (routeOrder[a.slot] || 0))[0];
+  const previousService = previousSelection
+    ? services.find((service) => service.id === previousSelection.service_id)
+    : null;
+
+  const formatted = candidates.map((candidate) => {
+    const item = formatDatasetService(candidate, req.plan_state.people, nights);
+    const distanceFromPrevious = estimatedDistanceKm(previousService?.coordinates, item.coordinates);
+    return previousService
+      ? { ...item, distance_from_previous_km: distanceFromPrevious }
+      : item;
+  });
   const preferenceCategory: PreferenceCategory = targetCategory === 'food'
     ? 'food'
     : targetCategory === 'accommodation' || targetCategory === 'stay'
