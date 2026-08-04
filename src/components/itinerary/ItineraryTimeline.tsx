@@ -134,7 +134,9 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                   Tổng chi phí Ngày {dayPlan.day}
                 </span>
                 <span className={`font-black text-base font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
-                  {dayPlan.total_cost_vnd.toLocaleString('vi-VN')} đ
+                  {dayPlan.events
+                    .reduce((total, event) => total + (event.display_cost_vnd ?? event.total_cost_vnd), 0)
+                    .toLocaleString('vi-VN')} đ
                 </span>
               </div>
             </div>
@@ -306,9 +308,9 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({
                           {event.price_unit === 'per_room' ? 'Chi phí / đêm' : 'Chi phí'}
                         </span>
                         <span className={`font-black text-sm font-serif ${isLight ? 'text-[#B8860B]' : 'text-[#d4af37]'}`}>
-                          {(event.display_cost_vnd || event.total_cost_vnd) === 0
+                          {(event.display_cost_vnd ?? event.total_cost_vnd) === 0
                             ? 'Miễn Phí'
-                            : `${(event.display_cost_vnd || event.total_cost_vnd).toLocaleString('vi-VN')} đ`}
+                            : `${(event.display_cost_vnd ?? event.total_cost_vnd).toLocaleString('vi-VN')} đ`}
                         </span>
                       </div>
 

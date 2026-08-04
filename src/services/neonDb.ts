@@ -415,7 +415,17 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
 
   const lodgingService = formatDatasetService(rawStay, planState.people, nights);
   lodgingService.time_window = 'overnight';
-  const stayCost = lodgingService.total_cost_vnd;
+  // Accommodation is charged by night. Do not add a hotel charge to a day
+  // trip, and keep the exact per-night allocation so the card amounts, daily
+  // totals, and trip allocation always describe the same money.
+  const stayCost = nights > 0 ? lodgingService.total_cost_vnd : 0;
+  const stayCostByDay = Array.from({ length: planState.num_days }, (_, index) => {
+    if (index >= nights) return 0;
+
+    const baseCost = Math.floor(stayCost / nights);
+    const remainder = stayCost % nights;
+    return baseCost + (index < remainder ? 1 : 0);
+  });
 
   const createCheckInEvent = (hotelItem: PlanServiceItem, day: number): PlanServiceItem => ({
     id: `CHECK_IN_${hotelItem.id}_D${day}`,
@@ -479,8 +489,18 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
     const dayNum = idx + 1;
     const dayEvents: PlanServiceItem[] = [];
 
-    // Stay card
-    dayEvents.push({ ...lodgingService, day: dayNum, slot: 'overnight' });
+    // Show and charge the hotel only on nights that are actually stayed.
+    // Its card price must be the same amount included in this day's total.
+    const stayCostForDay = stayCostByDay[idx];
+    if (stayCostForDay > 0) {
+      dayEvents.push({
+        ...lodgingService,
+        day: dayNum,
+        slot: 'overnight',
+        total_cost_vnd: stayCostForDay,
+        display_cost_vnd: stayCostForDay,
+      });
+    }
 
     // Day 1 Check-in procedure
     if (dayNum === 1 && nights > 0) {
@@ -490,6 +510,11 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
     const slots = ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner'];
     for (const slotName of slots) {
       const sel = planState.selections?.find((s) => s.day === dayNum && s.slot === slotName);
+      const isActivitySlot = ['morning', 'afternoon', 'evening'].includes(slotName);
+
+      // Leave intentionally empty activity slots empty instead of adding a
+      // fallback activity that could duplicate one scheduled on another day.
+      if (isActivitySlot && !sel) continue;
       let rawSrv = sel?.service_id ? rawServices.find((s) => s.id === sel.service_id) : null;
 
       if (!rawSrv) {
@@ -560,11 +585,11 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
       day: dayNum,
       events: dayEvents,
       costs: {
-        stay: Math.round(stayCost / planState.num_days),
+        stay: stayCostForDay,
         food: dayFoodTotal,
         activity: dayActTotal,
       },
-      total_cost_vnd: Math.round(stayCost / planState.num_days) + dayFoodTotal + dayActTotal,
+      total_cost_vnd: stayCostForDay + dayFoodTotal + dayActTotal,
     };
   });
 
@@ -692,6 +717,14 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     }, req.people, nights));
   }
 
+  const uniqueActivities = actItemsFormatted.filter(
+    (item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index,
+  );
+
+  if (uniqueActivities.length < req.num_days) {
+    throw new Error('Kh\u00f4ng \u0111\u1ee7 ho\u1ea1t \u0111\u1ed9ng kh\u00e1c nhau \u0111\u1ec3 x\u1ebfp l\u1ecbch cho m\u1ed7i ng\u00e0y.');
+  }
+
   const usedFoodIds = new Set<string>();
   const getNextUniqueFood = (slotType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'late_night'): PlanServiceItem => {
     const matchingUnused = foodItemsFormatted.find((item) => {
@@ -726,13 +759,17 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     const lunch = getNextUniqueFood('lunch');
     const dinner = getNextUniqueFood('dinner');
 
-    const morningAct = actItemsFormatted[idx % actItemsFormatted.length] || actItemsFormatted[0];
-    const afternoonAct = actItemsFormatted[(idx + 1) % actItemsFormatted.length] || actItemsFormatted[0];
+    // Every day receives a different primary activity. Add a second activity
+    // only when another unused option exists, so activities never cross days.
+    const dailyActivity = uniqueActivities[idx];
+    const secondaryActivity = uniqueActivities[req.num_days + idx];
 
     selections.push({ service_id: bfast.id, day: dayNum, slot: 'breakfast' });
-    selections.push({ service_id: morningAct.id, day: dayNum, slot: 'morning' });
+    selections.push({ service_id: dailyActivity.id, day: dayNum, slot: 'morning' });
     selections.push({ service_id: lunch.id, day: dayNum, slot: 'lunch' });
-    selections.push({ service_id: afternoonAct.id, day: dayNum, slot: 'afternoon' });
+    if (secondaryActivity) {
+      selections.push({ service_id: secondaryActivity.id, day: dayNum, slot: 'afternoon' });
+    }
     selections.push({ service_id: dinner.id, day: dayNum, slot: 'dinner' });
   }
 

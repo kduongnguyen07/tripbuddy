@@ -132,11 +132,16 @@ def _minimum_cost(criteria: TripCriteria, catalog: CatalogRepository, destinatio
         raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_accommodation")
     if any(not options for options in food_by_slot.values()):
         raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_meals")
-    if len(activities) < criteria.num_days:
-        raise PlanInfeasible(criteria.total_budget, criteria.total_budget, "no_matching_activities")
     lodging_cost = min(item.cost_for_group(criteria.people, nights) for item in stay) if nights else 0
-    meals_cost = criteria.num_days * sum(min(item.cost_for_group(criteria.people) for item in food_by_slot[slot]) for slot in MEAL_SLOTS)
-    activity_cost = sum(sorted(service.cost_for_group(criteria.people) for service in activities)[:criteria.num_days])
+    meals_cost = criteria.num_days * sum(
+        min(item.cost_for_group(criteria.people) for item in food_by_slot[slot])
+        for slot in MEAL_SLOTS
+    )
+    activity_cost = (
+        sum(sorted(service.cost_for_group(criteria.people) for service in activities)[:criteria.num_days])
+        if len(activities) >= criteria.num_days
+        else criteria.num_days * min((item.cost_for_group(criteria.people) for item in activities), default=0)
+    )
     return lodging_cost + meals_cost + activity_cost
 
 
@@ -193,12 +198,18 @@ def _distance_aware_improve(
         current = catalog.service(selection.service_id)
         if not current or current.category == "stay" or not current.coordinates:
             continue
+        if current.category == "activity" and len(_eligible_services(
+            catalog, request.destination_id, "activity", request.preferences,
+        )) < request.num_days:
+            # The solver has already distributed repeated activities across
+            # days. Do not undo that spacing during local distance tuning.
+            continue
         candidates = [
             service for service in _eligible_services(catalog, request.destination_id, current.category, request.preferences)
             if service.id != current.id
             and service.time_window == selection.slot
             and service.coordinates
-            and (service.category != "activity" or service.id not in {item.service_id for item in updated if item != selection})
+            and (current.category == "food" or service.id not in {item.service_id for item in updated if item != selection})
         ]
         if not candidates:
             continue
@@ -270,13 +281,34 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
             for service in activities
             if service.time_window == slot
         ]
-        problem += pulp.lpSum(day_activity_variables) >= 1
+        if day_activity_variables:
+            problem += pulp.lpSum(day_activity_variables) >= 1
 
-    # An activity can only appear once in a plan. Meals and accommodation may recur.
-    for service in activities:
-        activity_vars = [variable for key, variable in variables.items() if key[0] == service.id]
-        if activity_vars:
-            problem += pulp.lpSum(activity_vars) <= 1
+    if len(activities) >= request.num_days:
+        # Keep activities unique whenever the catalogue has enough choices.
+        for service in activities:
+            service_vars = [variable for key, variable in variables.items() if key[0] == service.id]
+            if service_vars:
+                problem += pulp.lpSum(service_vars) <= 1
+    elif len(activities) > 1:
+        # With too few activities, reuse them in a round-robin-like cadence:
+        # the same place cannot recur within the number of available choices.
+        # This gives the largest possible minimum gap between repetitions.
+        repeat_gap = len(activities)
+        for service in activities:
+            for earlier_day in range(1, request.num_days + 1):
+                earlier_vars = [
+                    variable
+                    for key, variable in variables.items()
+                    if key[0] == service.id and key[1] == earlier_day
+                ]
+                for later_day in range(earlier_day + 1, min(request.num_days + 1, earlier_day + repeat_gap)):
+                    later_vars = [
+                        variable
+                        for key, variable in variables.items()
+                        if key[0] == service.id and key[1] == later_day
+                    ]
+                    problem += pulp.lpSum(earlier_vars + later_vars) <= 1
 
     def variable_cost(key: tuple[str, int, str]) -> int:
         service = catalog.service(key[0])
@@ -318,7 +350,6 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
     _validate_destination(catalog, state.destination_id)
     if state.catalog_version != catalog.version:
         raise ValueError("Catalog version has changed; generate the plan again")
-    seen_activity_ids: set[str] = set()
     seen_slots: set[tuple[int, str]] = set()
     intervals_by_day: dict[int, list[tuple[float, float]]] = {}
     accommodation_selections: list[PlanSelection] = []
@@ -343,9 +374,6 @@ def _validate_state(state: PlanState, catalog: CatalogRepository) -> None:
         elif service.category == "activity":
             if selection.slot not in ACTIVITY_SLOTS:
                 raise ValueError("Activities must use an activity slot")
-            if service.id in seen_activity_ids:
-                raise ValueError("An activity cannot be repeated")
-            seen_activity_ids.add(service.id)
         else:
             raise ValueError("Unsupported service category")
 
@@ -411,8 +439,9 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
         })
 
     timeline = []
-    stay_per_night = totals["stay"] // nights if nights else 0
+    stay_per_night, stay_remainder = divmod(totals["stay"], nights) if nights else (0, 0)
     for day in range(1, state.num_days + 1):
+        stay_cost_for_day = stay_per_night + (1 if day <= stay_remainder else 0) if day <= nights else 0
         if lodging and day <= nights:
             start_time, end_time = SLOT_TIMES["overnight"]
             daily_events[day].append({
@@ -421,12 +450,12 @@ def materialize_plan(state: PlanState, catalog: CatalogRepository) -> dict[str, 
                 "slot": "overnight",
                 "start_time": start_time,
                 "end_time": end_time,
-                "total_cost_vnd": stay_per_night,
-                "display_cost_vnd": stay_per_night,
+                "total_cost_vnd": stay_cost_for_day,
+                "display_cost_vnd": stay_cost_for_day,
             })
         events = annotate_event_distances(daily_events[day])
         daily_costs = {
-            "stay": stay_per_night if day <= nights else 0,
+            "stay": stay_cost_for_day,
             "food": sum(event["total_cost_vnd"] for event in events if event["category"] == "food"),
             "activity": sum(event["total_cost_vnd"] for event in events if event["category"] == "activity"),
         }
@@ -513,15 +542,12 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     target = _find_target(state, request.target)
     current = catalog.service(target.service_id)
     assert current
-    occupied_activity_ids = {item.service_id for item in state.selections if item != target}
     current_total = sum(_selection_cost(item, state, catalog) for item in state.selections)
     target_cost = _selection_cost(target, state, catalog)
     has_previous_event, previous_coordinates = _previous_event_coordinates(state, target, catalog)
     candidates = []
     for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
         if service.id == current.id or service.category != current.category or service.time_window != target.slot:
-            continue
-        if service.category == "activity" and service.id in occupied_activity_ids:
             continue
         replacement_cost = service.cost_for_group(state.people, max(0, state.num_days - 1) if service.category == "stay" else 1)
         if current_total - target_cost + replacement_cost <= state.total_budget:

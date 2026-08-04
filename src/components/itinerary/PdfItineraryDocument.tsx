@@ -90,6 +90,7 @@ function EventRow({ event }: { event: PlanServiceItem }) {
 
 function DayPage({ plan, day, page, totalPages }: { plan: MaterializedPlan; day: DailyItineraryDayPlan; page: number; totalPages: number }) {
   const name = destinationName(plan);
+  const dayTotal = day.events.reduce((total, event) => total + (event.display_cost_vnd ?? event.total_cost_vnd), 0);
 
   return (
     <section data-pdf-page style={pageStyle}>
@@ -98,7 +99,7 @@ function DayPage({ plan, day, page, totalPages }: { plan: MaterializedPlan; day:
           <div style={eyebrowStyle}>TRIPBUDDY / LỊCH TRÌNH CHI TIẾT</div>
           <h2 style={{ color: '#2a241e', fontFamily: 'Georgia, serif', fontSize: 31, lineHeight: 1.05, margin: '8px 0 0' }}>Ngày {day.day} - Khám phá {name}</h2>
         </div>
-        <div style={{ color: '#8e6512', fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, textAlign: 'right' }}>{formatVnd(day.total_cost_vnd)}</div>
+        <div style={{ color: '#8e6512', fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, textAlign: 'right' }}>{formatVnd(dayTotal)}</div>
       </div>
 
       <div style={{ color: '#766d61', fontSize: 12, marginTop: 11 }}>Lịch trình được tối ưu theo ngân sách và các ưu tiên đã chọn.</div>

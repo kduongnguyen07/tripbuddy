@@ -8,6 +8,7 @@ import {
   Compass,
   X,
   Sliders,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Destination,
@@ -43,6 +44,11 @@ interface ItineraryCanvasProps {
   onRecalculate?: () => void;
 }
 
+interface PlanNotification {
+  id: number;
+  message: string;
+}
+
 export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
   selectedDestination,
   allDestinations,
@@ -59,11 +65,21 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
   const [materializedPlan, setMaterializedPlan] = useState<MaterializedPlan | null>(null);
   const [planLoading, setPlanLoading] = useState<boolean>(false);
   const [infeasibleError, setInfeasibleError] = useState<string | null>(null);
+  const [planNotifications, setPlanNotifications] = useState<PlanNotification[]>([]);
 
   // Swap Modal State
   const [swapModalOpen, setSwapModalOpen] = useState<boolean>(false);
   const [targetSelection, setTargetSelection] = useState<PlanSelection | null>(null);
   const [targetService, setTargetService] = useState<PlanServiceItem | null>(null);
+
+  const showPlanNotification = (message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setPlanNotifications((current) => [...current, { id, message }].slice(-5));
+
+    window.setTimeout(() => {
+      setPlanNotifications((current) => current.filter((notification) => notification.id !== id));
+    }, 3000);
+  };
 
   // Handler triggered ONLY when user fills form inside Pop-up Card and clicks "Tạo Lịch Trình"
   const handleGeneratePlan = async (req: GeneratePlanRequest) => {
@@ -74,6 +90,9 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
       const plan = await generatePlanApi(req);
 
       if (plan.status === 'infeasible') {
+        showPlanNotification(
+          plan.message || 'Không thể tạo lịch trình phù hợp. Vui lòng điều chỉnh ngân sách, số ngày hoặc sở thích.'
+        );
         setInfeasibleError(
           plan.message ||
             'Ngân sách hiện tại không đủ để xây dựng lịch trình phù hợp. Vui lòng tăng ngân sách hoặc rút ngắn thời gian chuyến đi.'
@@ -94,6 +113,7 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
       }
     } catch (err: any) {
       console.error('Error generating plan:', err);
+      showPlanNotification('Không thể tạo lịch trình. Vui lòng thử lại sau ít phút.');
       setInfeasibleError(
         'Đã xảy ra lỗi trong quá trình tối ưu lịch trình. Vui lòng thử lại.'
       );
@@ -129,6 +149,31 @@ export const ItineraryCanvas: React.FC<ItineraryCanvasProps> = ({
         isLight ? 'bg-[#FAF7F2] text-[#231F1D]' : 'bg-[#0C0805] text-white'
       }`}
     >
+      <div
+        aria-live="polite"
+        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      >
+        <AnimatePresence initial={false}>
+          {planNotifications.map((notification) => (
+            <motion.div
+              key={notification.id}
+              layout
+              initial={{ opacity: 0, x: 24, y: -8 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, y: 36, transition: { duration: 0.28, ease: 'easeIn' } }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="rounded-2xl border border-amber-200/70 bg-amber-500 px-4 py-3 text-sm font-semibold leading-snug text-white shadow-xl shadow-amber-950/25"
+              role="status"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{notification.message}</span>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
       {/* LUXURY BANNER WITH "TẠO LỊCH TRÌNH CỦA RIÊNG BẠN" CTA BUTTON */}
       <div
         className={`rounded-3xl p-8 sm:p-12 border shadow-2xl transition-all duration-500 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden ${

@@ -1,7 +1,7 @@
 /**
- * API Service Wrapper - Database Mode
- * Redirects all API requests directly to Neon PostgreSQL Database (via neonDb.ts)
- * eliminating HTTP backend API servers & fallback mechanisms.
+ * API Service Wrapper
+ * Uses Neon for catalogue reads and the FastAPI planning endpoints for
+ * recommendations and itinerary operations.
  */
 
 import {
@@ -18,7 +18,6 @@ import {
 
 import {
   getDestinationsFromDb,
-  recommendDestinationsDb,
   getSimilarDestinationsDb,
   getServiceIllustrationImage,
 } from './neonDb';
@@ -65,7 +64,11 @@ export async function fetchDestinationsApi(): Promise<Destination[]> {
 export async function recommendDestinationsApi(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
-  return recommendDestinationsDb(req);
+  const response = await planningRequest<{ recommendations: DestinationRecommendation[] }>(
+    '/destinations/recommend',
+    req
+  );
+  return response.recommendations;
 }
 
 export async function getSimilarDestinationsApi(
