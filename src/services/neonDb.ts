@@ -72,6 +72,78 @@ function safeJson(val: any, fallback: any) {
   return val;
 }
 
+type PreferenceCategory = 'stay' | 'food' | 'activity';
+
+// A preference can be stored under either its UI value or a closely related
+// catalogue tag. Keeping these aliases here lets older catalogue rows still
+// receive the same preference boost as newly added rows.
+const PREFERENCE_TAG_ALIASES: Record<string, string[]> = {
+  hotel: ['hotel', 'luxury'],
+  resort: ['resort', 'nature', 'scenic_view'],
+  homestay: ['homestay', 'casual'],
+  villa: ['villa', 'luxury'],
+  hostel: ['hostel', 'casual'],
+  casual: ['casual', 'street_food'],
+  seafood: ['seafood'],
+  local_specialty: ['local_specialty', 'asian_food'],
+  buffet: ['buffet'],
+  street_food: ['street_food', 'casual'],
+  fine_dining: ['fine_dining', 'luxury'],
+  cafe: ['cafe', 'scenic_view'],
+  fast_food: ['fast_food'],
+  asian_food: ['asian_food', 'local_specialty'],
+  healthy: ['healthy', 'vegetarian'],
+  vegetarian: ['vegetarian', 'healthy'],
+  western_food: ['western_food'],
+  check_in: ['check_in', 'scenic_view'],
+  culture: ['culture', 'history'],
+  entertainment: ['entertainment'],
+  history: ['history', 'culture'],
+  nature: ['nature', 'scenic_view'],
+  scenic_view: ['scenic_view', 'nature'],
+  shopping: ['shopping'],
+};
+
+function preferencesForCategory(preferences: any, category: PreferenceCategory): string[] {
+  if (!preferences) return [];
+  if (category === 'stay') return preferences.lodging_styles || [];
+  if (category === 'food') return preferences.food_styles || [];
+  return preferences.activity_styles || [];
+}
+
+function preferenceScore(item: any, styles: string[]): number {
+  if (!styles.length) return 0;
+
+  const tags = Array.isArray(item?.tags) ? item.tags : safeJson(item?.tags, []);
+  const searchable = [
+    ...(Array.isArray(tags) ? tags : []),
+    item?.sub_category,
+    item?.subtype,
+    item?.name,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return styles.reduce((score, style) => {
+    const candidates = PREFERENCE_TAG_ALIASES[style] || [style];
+    return score + (candidates.some((tag) => searchable.includes(tag.toLowerCase())) ? 1 : 0);
+  }, 0);
+}
+
+function sortByPreference<T extends { rating?: number; price?: number; price_vnd?: number; tags?: any; sub_category?: string; subtype?: string; name?: string }>(
+  items: T[],
+  styles: string[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const preferenceDifference = preferenceScore(b, styles) - preferenceScore(a, styles);
+    if (preferenceDifference !== 0) return preferenceDifference;
+    const ratingDifference = Number(b.rating || 0) - Number(a.rating || 0);
+    if (ratingDifference !== 0) return ratingDifference;
+    return Number(a.price ?? a.price_vnd ?? 0) - Number(b.price ?? b.price_vnd ?? 0);
+  });
+}
+
 function parseDestinationRow(row: any): Destination {
   const hero = row.hero_image || '';
   return {
@@ -284,12 +356,34 @@ export async function recommendDestinationsDb(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
   const dests = await getDestinationsFromDb();
+  const services = await getServicesFromDb();
   const limit = req.limit || 3;
 
-  return dests.slice(0, limit).map((d) => {
+  return dests.map((d) => {
     const minCost = Math.round((d.minimum_two_day_cost_vnd || 1500000) * (req.num_days / 2) * Math.max(1, req.people * 0.7));
     const estimated = Math.min(req.total_budget, Math.max(minCost, Math.round(req.total_budget * 0.75)));
     const remaining = Math.max(0, req.total_budget - estimated);
+    const destinationCodes = (DEST_CODE_MAP[d.id] || [d.id, d.code || '']).map((code) => String(code).toUpperCase());
+    const destinationServices = services.filter((service) =>
+      destinationCodes.includes(String(service.destination_id || '').toUpperCase()),
+    );
+
+    const preferenceMatches = (['stay', 'food', 'activity'] as PreferenceCategory[]).reduce(
+      (matches, category) => {
+        const styles = preferencesForCategory(req.preferences, category);
+        return matches + styles.filter((style) =>
+          destinationServices.some((service) => preferenceScore(service, [style]) > 0),
+        ).length;
+      },
+      0,
+    );
+    const requestedPreferences =
+      preferencesForCategory(req.preferences, 'stay').length +
+      preferencesForCategory(req.preferences, 'food').length +
+      preferencesForCategory(req.preferences, 'activity').length;
+    const preferenceFit = requestedPreferences ? preferenceMatches / requestedPreferences : 0;
+    const budgetFit = minCost <= req.total_budget ? 1 : req.total_budget / Math.max(1, minCost);
+    const fitScore = Math.round(Math.min(10, 4 + preferenceFit * 4.5 + budgetFit * 1.5) * 10) / 10;
 
     return {
       destination: {
@@ -301,9 +395,13 @@ export async function recommendDestinationsDb(
       },
       estimated_minimum_cost_vnd: estimated,
       remaining_vnd: remaining,
-      fit_score: 9.6,
+      fit_score: fitScore,
     };
-  });
+  }).sort((a, b) => {
+    if (b.fit_score !== a.fit_score) return b.fit_score - a.fit_score;
+    if (b.remaining_vnd !== a.remaining_vnd) return b.remaining_vnd - a.remaining_vnd;
+    return a.destination.name.localeCompare(b.destination.name, 'vi');
+  }).slice(0, limit);
 }
 
 export async function getSimilarDestinationsDb(
@@ -655,8 +753,8 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
   let rawStay: any = null;
   if (budgetStays.length > 0) {
-    // Pick highest rated stay within target stay budget
-    rawStay = [...budgetStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+    // A matching lodging style wins before rating when it stays in budget.
+    rawStay = sortByPreference(budgetStays, preferencesForCategory(req.preferences, 'stay'))[0];
   } else if (stays.length > 0) {
     // Fallback 1: Filter stays that fit within 65% of total trip budget
     const affordableStays = stays.filter((s) => {
@@ -665,7 +763,7 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     });
 
     if (affordableStays.length > 0) {
-      rawStay = [...affordableStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+      rawStay = sortByPreference(affordableStays, preferencesForCategory(req.preferences, 'stay'))[0];
     } else {
       // Fallback 2: Pick cheapest stay available
       rawStay = [...stays].sort((a, b) => {
@@ -690,8 +788,14 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
   const lodgingService = formatDatasetService(rawStay, req.people, nights);
 
-  const foodSource = foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []);
-  const actSource = acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []);
+  const foodSource = sortByPreference(
+    foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []),
+    preferencesForCategory(req.preferences, 'food'),
+  );
+  const actSource = sortByPreference(
+    acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []),
+    preferencesForCategory(req.preferences, 'activity'),
+  );
 
   const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
   const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
@@ -826,8 +930,15 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
 
   const nights = Math.max(0, req.plan_state.num_days - 1);
   const formatted = candidates.map((c) => formatDatasetService(c, req.plan_state.people, nights));
+  const preferenceCategory: PreferenceCategory = targetCategory === 'food'
+    ? 'food'
+    : targetCategory === 'accommodation' || targetCategory === 'stay'
+      ? 'stay'
+      : 'activity';
+  const preferredStyles = preferencesForCategory(req.plan_state.preferences, preferenceCategory);
 
-  // Sort candidates: first those within budget, then by rating (highest first), then by cost (lowest first)
+  // Keep budget-eligible options above over-budget ones, then prefer the
+  // traveller's saved styles before rating and cost break ties.
   formatted.sort((a, b) => {
     const costA = a.total_cost_vnd;
     const costB = b.total_cost_vnd;
@@ -835,6 +946,8 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
     const fitsB = costB <= req.plan_state.total_budget;
     if (fitsA && !fitsB) return -1;
     if (!fitsA && fitsB) return 1;
+    const preferenceDifference = preferenceScore(b, preferredStyles) - preferenceScore(a, preferredStyles);
+    if (preferenceDifference !== 0) return preferenceDifference;
     if (b.rating !== a.rating) return b.rating - a.rating;
     return costA - costB;
   });
