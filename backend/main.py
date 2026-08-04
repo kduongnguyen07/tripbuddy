@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import os
+import time
 import uuid
-import json
-from pathlib import Path
 from typing import Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from backend.catalog import CatalogRepository
 from backend.database import get_db, engine, Base, ensure_service_coordinates_schema
-from backend.models import DestinationModel, ServiceModel
+from backend.models import DestinationModel, ServiceModel, SiteConfigModel, SlideModel
 
 from backend.planner import PlanInfeasible, apply_swap, generate_plan, get_similar_destinations, recommend_destinations, swap_options
 from backend.schemas import (
@@ -25,7 +27,9 @@ from backend.schemas import (
 from backend.seed_db import seed_database
 from backend.backup_db import export_database_json
 
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "tripbuddy_admin_secret_2026")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
+ADMIN_SESSION_COOKIE = "tripbuddy_admin_session"
+ADMIN_SESSION_MAX_AGE_SECONDS = int(os.getenv("ADMIN_SESSION_MAX_AGE_SECONDS", "28800"))
 
 
 # Create DB tables automatically on server start
@@ -38,8 +42,47 @@ def get_catalog(db: Session = Depends(get_db)) -> CatalogRepository:
 
 
 def _allowed_origins() -> list[str]:
-    configured = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    configured = os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+    )
     return [origin.strip() for origin in configured.split(",") if origin.strip()]
+
+
+def _require_admin_secret(x_admin_secret: str | None) -> str:
+    """Check the server-only secret without ever serialising it to the client."""
+    if not ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="ADMIN_SECRET_KEY is not configured")
+    if not x_admin_secret or not hmac.compare_digest(x_admin_secret, ADMIN_SECRET_KEY):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return ADMIN_SECRET_KEY
+
+
+def _create_admin_session(secret: str) -> str:
+    issued_at = str(int(time.time()))
+    signature = hmac.new(secret.encode(), issued_at.encode(), hashlib.sha256).digest()
+    return f"{issued_at}.{base64.urlsafe_b64encode(signature).decode().rstrip('=')}"
+
+
+def _valid_admin_session(token: str | None) -> bool:
+    if not token or not ADMIN_SECRET_KEY:
+        return False
+    try:
+        issued_at, supplied_signature = token.split(".", 1)
+        if int(issued_at) + ADMIN_SESSION_MAX_AGE_SECONDS < int(time.time()):
+            return False
+        expected = hmac.new(ADMIN_SECRET_KEY.encode(), issued_at.encode(), hashlib.sha256).digest()
+        expected_signature = base64.urlsafe_b64encode(expected).decode().rstrip("=")
+        return hmac.compare_digest(supplied_signature, expected_signature)
+    except (TypeError, ValueError):
+        return False
+
+
+def require_admin(
+    admin_session: str | None = Cookie(None, alias=ADMIN_SESSION_COOKIE),
+) -> None:
+    if not _valid_admin_session(admin_session):
+        raise HTTPException(status_code=401, detail="Admin login is required")
 
 
 app = FastAPI(
@@ -49,7 +92,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -131,6 +174,34 @@ def get_similar(destination_id: str, limit: int = 3, catalog: CatalogRepository 
 # --- ONLINE POSTGRESQL / DATABASE API ENDPOINTS ---
 
 
+@app.post("/api/v1/admin/session")
+def create_admin_session(
+    response: Response,
+    x_admin_secret: str | None = Header(None, alias="X-Admin-Secret"),
+):
+    """Exchange the one-time admin secret for an HTTP-only server session."""
+    secret = _require_admin_secret(x_admin_secret)
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=_create_admin_session(secret),
+        max_age=ADMIN_SESSION_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=(
+            os.getenv("ENVIRONMENT", "development").lower() == "production"
+            or os.getenv("VERCEL") == "1"
+        ),
+        samesite="strict",
+        path="/api/v1",
+    )
+    return {"status": "success", "expires_in_seconds": ADMIN_SESSION_MAX_AGE_SECONDS}
+
+
+@app.delete("/api/v1/admin/session")
+def delete_admin_session(response: Response):
+    response.delete_cookie(key=ADMIN_SESSION_COOKIE, path="/api/v1")
+    return {"status": "success"}
+
+
 @app.get("/api/v1/db/services")
 def get_db_services(destination_id: str | None = None, category: str | None = None, db: Session = Depends(get_db)):
     query = db.query(ServiceModel)
@@ -143,7 +214,11 @@ def get_db_services(destination_id: str | None = None, category: str | None = No
 
 
 @app.post("/api/v1/db/services")
-def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depends(get_db)):
+def create_or_update_db_service(
+    service_data: dict[str, Any],
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin),
+):
     dest_id = service_data.get("destination_id", "HAN")
     target_dest = db.query(DestinationModel).filter(
         (DestinationModel.id == dest_id) | (DestinationModel.code == dest_id.upper())
@@ -167,18 +242,19 @@ def create_or_update_db_service(service_data: dict[str, Any], db: Session = Depe
         tags=service_data.get("tags", []),
         image_url=service_data.get("image_url", ""),
         booking_url=service_data.get("booking_url", ""),
+        meal_type=service_data.get("meal_type", "breakfast,lunch,dinner"),
         coordinates=service_data.get("coordinates"),
         geocoding_status=service_data.get("geocoding_status", "pending"),
         geocoding_confidence=service_data.get("geocoding_confidence"),
         geocoded_address=service_data.get("geocoded_address", ""),
     )
-    db.merge(db_srv)
+    db_srv = db.merge(db_srv)
     db.commit()
     return {"status": "success", "service": db_srv.as_dict()}
 
 
 @app.delete("/api/v1/db/services/{service_id}")
-def delete_db_service(service_id: str, db: Session = Depends(get_db)):
+def delete_db_service(service_id: str, db: Session = Depends(get_db), _: None = Depends(require_admin)):
     srv = db.query(ServiceModel).filter(ServiceModel.id == service_id).first()
     if not srv:
         raise HTTPException(status_code=404, detail="Service not found")
@@ -189,16 +265,14 @@ def delete_db_service(service_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/v1/db/seed")
 def reseed_db(x_admin_secret: str | None = Header(None, alias="X-Admin-Secret")):
-    if x_admin_secret != ADMIN_SECRET_KEY:
-        raise HTTPException(status_code=403, detail="Unauthorized: Valid X-Admin-Secret header required")
+    _require_admin_secret(x_admin_secret)
     seed_database()
     return {"status": "success", "message": "Database seeded safely without dropping existing tables"}
 
 
 @app.post("/api/v1/db/backup")
 def backup_db(x_admin_secret: str | None = Header(None, alias="X-Admin-Secret")):
-    if x_admin_secret != ADMIN_SECRET_KEY:
-        raise HTTPException(status_code=403, detail="Unauthorized: Valid X-Admin-Secret header required")
+    _require_admin_secret(x_admin_secret)
     result = export_database_json()
     return result
 
@@ -211,7 +285,11 @@ def get_db_destinations(db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/db/destinations")
-def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Depends(get_db)):
+def create_or_update_db_destination(
+    dest_data: dict[str, Any],
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin),
+):
     dest_id = dest_data.get("id") or f"dest_{int(datetime.now().timestamp() * 1000)}_{uuid.uuid4().hex[:6]}"
     db_dest = DestinationModel(
         id=dest_id,
@@ -225,50 +303,17 @@ def create_or_update_db_destination(dest_data: dict[str, Any], db: Session = Dep
         gallery_images=dest_data.get("gallery_images", []),
         satisfaction_scores=dest_data.get("satisfaction_scores", {"stay": 9.0, "food": 9.0, "transport": 9.0, "activities": 9.0}),
         activities=dest_data.get("activities", []),
+        travel_tips=dest_data.get("travel_tips", []),
         description=dest_data.get("description", ""),
         minimum_two_day_cost_vnd=int(dest_data.get("minimum_two_day_cost_vnd", 1500000)),
     )
-    db.merge(db_dest)
+    db_dest = db.merge(db_dest)
     db.commit()
-    # ---- Persist to JSON dataset ----
-    try:
-        json_path = Path(__file__).parent / "tripbuddy_full_dataset_500.json"
-        if json_path.exists():
-            with open(json_path, "r", encoding="utf-8") as f:
-                dataset = json.load(f)
-        else:
-            dataset = []
-        # Replace or append the destination entry
-        existing_idx = next((i for i, d in enumerate(dataset) if d.get("id") == dest_id), None)
-        dest_dict = {
-            "id": dest_id,
-            "code": db_dest.code,
-            "name": db_dest.name,
-            "region": db_dest.region,
-            "category_type": db_dest.category_type,
-            "tags": db_dest.tags,
-            "coordinates": db_dest.coordinates,
-            "hero_image": db_dest.hero_image,
-            "gallery_images": db_dest.gallery_images,
-            "satisfaction_scores": db_dest.satisfaction_scores,
-            "activities": db_dest.activities,
-            "description": db_dest.description,
-            "minimum_two_day_cost_vnd": db_dest.minimum_two_day_cost_vnd,
-        }
-        if existing_idx is not None:
-            dataset[existing_idx] = dest_dict
-        else:
-            dataset.append(dest_dict)
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(dataset, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        # Log but do not fail the request
-        print(f"[WARN] Failed to sync JSON dataset: {e}")
     return {"status": "success", "destination": db_dest.as_dict()}
 
 
 @app.delete("/api/v1/db/destinations/{dest_id}")
-def delete_db_destination(dest_id: str, db: Session = Depends(get_db)):
+def delete_db_destination(dest_id: str, db: Session = Depends(get_db), _: None = Depends(require_admin)):
     dests = db.query(DestinationModel).filter(
         (DestinationModel.id == dest_id) | (DestinationModel.id == dest_id.lower()) | (DestinationModel.code == dest_id.upper())
     ).all()
@@ -277,6 +322,63 @@ def delete_db_destination(dest_id: str, db: Session = Depends(get_db)):
         db.query(ServiceModel).filter(ServiceModel.destination_id == dest.id).delete()
     db.commit()
     return {"status": "success", "message": f"Deleted destination {dest_id}"}
+
+
+@app.get("/api/v1/db/hero")
+def get_hero_config(db: Session = Depends(get_db)):
+    config = db.query(SiteConfigModel).filter(SiteConfigModel.key == "hero").first()
+    return {"status": "success", "hero": config.as_dict()["value"] if config else None}
+
+
+@app.put("/api/v1/db/hero")
+def update_hero_config(
+    hero_config: dict[str, Any],
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin),
+):
+    config = SiteConfigModel(key="hero", value=hero_config)
+    config = db.merge(config)
+    db.commit()
+    return {"status": "success", "hero": config.as_dict()["value"]}
+
+
+@app.get("/api/v1/db/slides")
+def get_db_slides(db: Session = Depends(get_db)):
+    slides = db.query(SlideModel).order_by(SlideModel.id.asc()).all()
+    return {"status": "success", "count": len(slides), "slides": [slide.as_dict() for slide in slides]}
+
+
+@app.post("/api/v1/db/slides")
+def create_or_update_db_slide(
+    slide_data: dict[str, Any],
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin),
+):
+    slide_id = slide_data.get("id") or f"slide_{int(datetime.now().timestamp() * 1000)}_{uuid.uuid4().hex[:6]}"
+    slide = SlideModel(
+        id=slide_id,
+        category=slide_data.get("category", ""),
+        title=slide_data.get("title", ""),
+        titleHighlight=slide_data.get("titleHighlight", ""),
+        description=slide_data.get("description", ""),
+        image=slide_data.get("image", ""),
+        imageCaptionTitle=slide_data.get("imageCaptionTitle", ""),
+        imageCaptionSub=slide_data.get("imageCaptionSub", ""),
+        features=slide_data.get("features", []),
+    )
+    slide = db.merge(slide)
+    db.commit()
+    return {"status": "success", "slide": slide.as_dict()}
+
+
+@app.delete("/api/v1/db/slides/{slide_id}")
+def delete_db_slide(slide_id: str, db: Session = Depends(get_db), _: None = Depends(require_admin)):
+    slide = db.query(SlideModel).filter(SlideModel.id == slide_id).first()
+    if not slide:
+        raise HTTPException(status_code=404, detail="Slide not found")
+    db.delete(slide)
+    db.commit()
+    return {"status": "success", "message": f"Deleted slide {slide_id}"}
 
 
 if __name__ == "__main__":
