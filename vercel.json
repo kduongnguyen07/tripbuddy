@@ -1,12 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+  "experimentalServices": {
+    "web": {
+      "entrypoint": ".",
+      "framework": "vite",
+      "routePrefix": "/"
+    },
+    "api": {
+      "entrypoint": "backend/main.py",
+      "framework": "fastapi",
+      "routePrefix": "/api"
     }
-  ]
+  }
 }
