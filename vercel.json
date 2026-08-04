@@ -1,15 +1,29 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "experimentalServices": {
-    "web": {
-      "entrypoint": ".",
-      "framework": "vite",
-      "routePrefix": "/"
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
     },
-    "api": {
-      "entrypoint": "backend/main.py",
-      "framework": "fastapi",
-      "routePrefix": "/api"
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.py"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
+

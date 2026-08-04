@@ -40,9 +40,8 @@ export const PopularPlacesSection: React.FC<PopularPlacesProps> = ({
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {destinations.slice(0, 4).map((dest, idx) => {
-          const scores = dest.satisfaction_scores || { stay: 9.0, food: 9.0, activities: 9.0, transport: 9.0 };
-          const rating = (((scores.stay || 9.0) + (scores.food || 9.0) + (scores.activities || 9.0)) / 3).toFixed(1);
-          const estPrice = ((scores.food || 9.0) * 450000).toLocaleString('vi-VN');
+          const rating = ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1);
+          const estPrice = (dest.satisfaction_scores.food * 450000).toLocaleString('vi-VN');
 
           return (
             <motion.div

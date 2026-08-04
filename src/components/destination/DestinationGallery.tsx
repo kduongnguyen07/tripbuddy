@@ -43,8 +43,7 @@ export const DestinationGallery: React.FC<DestinationGalleryProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {destinations.map((dest, index) => {
             const isSelected = dest.id === selectedDestinationId;
-            const scores = dest.satisfaction_scores || { stay: 9.0, food: 9.0, activities: 9.0, transport: 9.0 };
-            const avgRating = (((scores.stay || 9.0) + (scores.food || 9.0) + (scores.activities || 9.0)) / 3).toFixed(1);
+            const avgRating = ((dest.satisfaction_scores.stay + dest.satisfaction_scores.food + dest.satisfaction_scores.activities) / 3).toFixed(1);
 
             return (
               <motion.div

@@ -147,26 +147,6 @@ def _eligible_services(
     ]
 
 
-def _eligible_food_services(
-    catalog: CatalogRepository,
-    destination_id: str,
-    preferences: Preferences,
-    required_unique_venues: int,
-) -> list[Service]:
-    """Use preferred food venues first, then broaden only to prevent repeats."""
-    preferred = _eligible_services(catalog, destination_id, "food", preferences)
-    if len(preferred) >= required_unique_venues:
-        return preferred
-
-    all_food = [
-        service
-        for service in catalog.services_for(destination_id, "food")
-        if _service_fits_slot(service, service.time_window)
-    ]
-    preferred_ids = {service.id for service in preferred}
-    return preferred + [service for service in all_food if service.id not in preferred_ids]
-
-
 def _priority(category: str, priorities: Priorities) -> float:
     return PRIORITY_WEIGHTS[getattr(priorities, category).value]
 
@@ -253,18 +233,8 @@ def _distance_aware_improve(
             # The solver has already distributed repeated activities across
             # days. Do not undo that spacing during local distance tuning.
             continue
-        candidate_services = (
-            _eligible_food_services(
-                catalog,
-                request.destination_id,
-                request.preferences,
-                request.num_days * len(MEAL_SLOTS),
-            )
-            if current.category == "food"
-            else _eligible_services(catalog, request.destination_id, current.category, request.preferences)
-        )
         candidates = [
-            service for service in candidate_services
+            service for service in _eligible_services(catalog, request.destination_id, current.category, request.preferences)
             if service.id != current.id
             and _service_fits_slot(service, selection.slot)
             and service.coordinates
@@ -395,17 +365,7 @@ def _repair_schedule_bounds(
         current_total = sum(_selection_cost(item, _make_state(request, updated, catalog), catalog) for item in updated)
         selected_elsewhere_ids = {item.service_id for item in updated if item != invalid_selection}
         replacement_options: list[tuple[float, PlanSelection]] = []
-        candidate_services = (
-            _eligible_food_services(
-                catalog,
-                request.destination_id,
-                request.preferences,
-                request.num_days * len(MEAL_SLOTS),
-            )
-            if current.category == "food"
-            else _eligible_services(catalog, request.destination_id, current.category, request.preferences)
-        )
-        for candidate in candidate_services:
+        for candidate in _eligible_services(catalog, request.destination_id, current.category, request.preferences):
             if (
                 candidate.id == current.id
                 or candidate.id in selected_elsewhere_ids
@@ -440,12 +400,7 @@ def generate_plan(request: GeneratePlanRequest, catalog: CatalogRepository) -> d
 
     nights = max(0, request.num_days - 1)
     stay = _eligible_services(catalog, request.destination_id, "stay", request.preferences)
-    food = _eligible_food_services(
-        catalog,
-        request.destination_id,
-        request.preferences,
-        request.num_days * len(MEAL_SLOTS),
-    )
+    food = _eligible_services(catalog, request.destination_id, "food", request.preferences)
     activities = _eligible_services(catalog, request.destination_id, "activity", request.preferences)
     problem = pulp.LpProblem("tripbuddy_plan", pulp.LpMaximize)
     variables: dict[tuple[str, int, str], pulp.LpVariable] = {}
@@ -790,17 +745,7 @@ def swap_options(request: SwapOptionsRequest, catalog: CatalogRepository) -> dic
     ]
     occupied_slot_duration = sum(service.duration_hours for service in occupied_slot_services)
     candidates = []
-    candidate_services = (
-        _eligible_food_services(
-            catalog,
-            state.destination_id,
-            state.preferences,
-            state.num_days * len(MEAL_SLOTS),
-        )
-        if current.category == "food"
-        else _eligible_services(catalog, state.destination_id, current.category, state.preferences)
-    )
-    for service in candidate_services:
+    for service in _eligible_services(catalog, state.destination_id, current.category, state.preferences):
         if service.id == current.id or service.category != current.category or not _service_fits_slot(service, target.slot):
             continue
         if (

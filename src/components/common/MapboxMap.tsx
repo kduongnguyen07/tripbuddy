@@ -13,18 +13,10 @@ interface MapProps {
 
 export const MapboxMap: React.FC<MapProps> = ({
   selectedDestination,
-  allDestinations = [],
+  allDestinations,
   onSelectDestination,
 }) => {
   const { theme: globalTheme } = useData();
-
-  const currentDest = selectedDestination || (allDestinations && allDestinations.length > 0 ? allDestinations[0] : null) || {
-    id: 'HAN',
-    name: 'Hà Nội',
-    region: 'Miền Bắc',
-    coordinates: [105.8542, 21.0285]
-  };
-
   // Map mode state: defaults to globalTheme ('dark' or 'light')
   const [mapTheme, setMapTheme] = useState<'dark' | 'light'>(
     globalTheme === 'light' ? 'light' : 'dark'
@@ -48,13 +40,9 @@ export const MapboxMap: React.FC<MapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const initialCoords: [number, number] = (currentDest.coordinates && currentDest.coordinates.length === 2)
-      ? [currentDest.coordinates[1], currentDest.coordinates[0]]
-      : [16.0, 108.0];
-
     // Initialize Leaflet Map
     const map = L.map(mapContainerRef.current, {
-      center: initialCoords,
+      center: [16.0, 108.0],
       zoom: 5.5,
       zoomControl: false,
       attributionControl: false,
@@ -75,7 +63,6 @@ export const MapboxMap: React.FC<MapProps> = ({
 
     // 1. Add Archipelago Markers (Single uniform neutral gray style)
     archipelagosData.forEach((arch) => {
-      if (!arch.coordinates || arch.coordinates.length !== 2) return;
       const icon = L.divIcon({
         className: 'custom-arch-marker',
         html: `
@@ -110,9 +97,8 @@ export const MapboxMap: React.FC<MapProps> = ({
     });
 
     // 2. Add Destination Markers (ONLY Selected is GOLD/YELLOW, ALL others are UNIFORM NEUTRAL GRAY)
-    (allDestinations || []).forEach((dest) => {
-      if (!dest || !dest.coordinates || dest.coordinates.length !== 2) return;
-      const isSelected = currentDest && dest.id === currentDest.id;
+    allDestinations.forEach((dest) => {
+      const isSelected = dest.id === selectedDestination.id;
 
       const icon = L.divIcon({
         className: 'custom-dest-marker',
@@ -157,7 +143,7 @@ export const MapboxMap: React.FC<MapProps> = ({
             transition: all 0.3s ease;
           ">
             <span style="color: ${isSelected ? '#0C0805' : '#64748b'}">📍</span>
-            <span>${(dest.name || '').split('-')[0].trim()}</span>
+            <span>${dest.name.split('-')[0].trim()}</span>
           </div>
         `,
         iconSize: [130, 26],
@@ -176,20 +162,20 @@ export const MapboxMap: React.FC<MapProps> = ({
     return () => {
       map.remove();
     };
-  }, [allDestinations, currentDest, mapTheme]);
+  }, [allDestinations, selectedDestination, mapTheme]);
 
   // Fly to selected destination on change
   useEffect(() => {
-    if (mapRef.current && currentDest && currentDest.coordinates && currentDest.coordinates.length === 2) {
+    if (mapRef.current && selectedDestination) {
       mapRef.current.flyTo(
-        [currentDest.coordinates[1], currentDest.coordinates[0]],
+        [selectedDestination.coordinates[1], selectedDestination.coordinates[0]],
         8.5,
         {
           duration: 1.5,
         }
       );
     }
-  }, [currentDest]);
+  }, [selectedDestination]);
 
   return (
     <div className="relative w-full h-[420px] rounded-3xl overflow-hidden border border-amber-950/60 shadow-2xl">
@@ -200,7 +186,7 @@ export const MapboxMap: React.FC<MapProps> = ({
       <div className="absolute top-4 left-4 z-[400] bg-[#0C0805]/90 backdrop-blur-md px-4 py-2 rounded-2xl border border-[#d4af37]/40 flex items-center gap-2 shadow-xl">
         <span className="text-[#d4af37] font-bold">📍</span>
         <span className="text-xs font-extrabold text-white">
-          Đang chọn: {currentDest?.name || 'Hà Nội'}
+          Đang chọn: {selectedDestination.name}
         </span>
       </div>
 
