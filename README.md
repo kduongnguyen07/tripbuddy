@@ -233,6 +233,17 @@ Dự án đã được cấu hình sẵn cho Vercel với `vercel.json`:
 3. Deploy. Service `web` phục vụ Vite tại `/`; service `api` phục vụ FastAPI tại `/api`. Frontend sẽ gọi `/api/v1/...` cùng domain, còn fallback chỉ dùng khi service API không phản hồi.
 4. Seed Neon một lần sau deploy bằng endpoint bảo vệ `POST /api/v1/db/seed` với header `X-Admin-Secret`, hoặc chạy `python -m backend.seed_db` với cùng `DATABASE_URL`.
 
+### Khôi phục catalog từ snapshot Git
+
+Nếu không còn quyền truy cập Neon cũ, repository vẫn lưu snapshot catalog tại commit lịch sử. Sau khi đặt `DATABASE_URL` thành connection string **Neon mới**, chạy:
+
+```bash
+python -m backend.import_legacy_backup --dry-run
+python -m backend.import_legacy_backup
+```
+
+Lệnh import chỉ upsert (không xóa dữ liệu đã có) và khôi phục destinations, services, slides cùng cấu hình hero. Không truyền connection string Neon cũ vào lệnh này.
+
 ## 📜 Scripts
 
 ```bash
