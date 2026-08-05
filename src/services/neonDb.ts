@@ -72,6 +72,156 @@ function safeJson(val: any, fallback: any) {
   return val;
 }
 
+type PreferenceCategory = 'stay' | 'food' | 'activity';
+
+// Preferences are exact categories, not broad price/quality labels. For
+// example, a luxury hotel must not qualify as a villa just because both may
+// carry the `luxury` tag. Services should use their sub-category or an exact
+// preference tag to opt in to a selected style.
+const PREFERENCE_TAG_ALIASES: Record<string, string[]> = {
+  hotel: ['hotel'],
+  resort: ['resort'],
+  homestay: ['homestay'],
+  villa: ['villa'],
+  hostel: ['hostel'],
+  casual: ['casual'],
+  seafood: ['seafood'],
+  local_specialty: ['local_specialty'],
+  buffet: ['buffet'],
+  street_food: ['street_food'],
+  fine_dining: ['fine_dining'],
+  cafe: ['cafe'],
+  fast_food: ['fast_food'],
+  asian_food: ['asian_food'],
+  healthy: ['healthy'],
+  vegetarian: ['vegetarian'],
+  western_food: ['western_food'],
+  check_in: ['check_in'],
+  culture: ['culture'],
+  entertainment: ['entertainment'],
+  history: ['history'],
+  nature: ['nature'],
+  scenic_view: ['scenic_view'],
+  shopping: ['shopping'],
+};
+
+function preferencesForCategory(preferences: any, category: PreferenceCategory): string[] {
+  if (!preferences) return [];
+  if (category === 'stay') return preferences.lodging_styles || [];
+  if (category === 'food') return preferences.food_styles || [];
+  return preferences.activity_styles || [];
+}
+
+function preferenceScore(item: any, styles: string[]): number {
+  if (!styles.length) return 0;
+
+  const tags = Array.isArray(item?.tags) ? item.tags : safeJson(item?.tags, []);
+  const searchable = [
+    ...(Array.isArray(tags) ? tags : []),
+    item?.sub_category,
+    item?.subtype,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return styles.reduce((score, style) => {
+    const candidates = PREFERENCE_TAG_ALIASES[style] || [style];
+    return score + (candidates.some((tag) => searchable.includes(tag.toLowerCase())) ? 1 : 0);
+  }, 0);
+}
+
+function sortByPreference<T extends { rating?: number; price?: number; price_vnd?: number; tags?: any; sub_category?: string; subtype?: string; name?: string }>(
+  items: T[],
+  styles: string[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const preferenceDifference = preferenceScore(b, styles) - preferenceScore(a, styles);
+    if (preferenceDifference !== 0) return preferenceDifference;
+    const ratingDifference = Number(b.rating || 0) - Number(a.rating || 0);
+    if (ratingDifference !== 0) return ratingDifference;
+    return Number(a.price ?? a.price_vnd ?? 0) - Number(b.price ?? b.price_vnd ?? 0);
+  });
+}
+
+function matchingServicesOrFallback<T extends { rating?: number; price?: number; price_vnd?: number; tags?: any; sub_category?: string; subtype?: string; name?: string }>(
+  items: T[],
+  styles: string[],
+  minimumMatches: number = 1,
+): T[] {
+  const ordered = sortByPreference(items, styles);
+  if (!styles.length) return ordered;
+
+  const matching = ordered.filter((item) => preferenceScore(item, styles) > 0);
+  if (matching.length >= minimumMatches) return matching;
+
+  // Preserve all matching choices first, but add the non-matching catalogue
+  // only when it cannot fill the required distinct itinerary slots.
+  return [...matching, ...ordered.filter((item) => preferenceScore(item, styles) === 0)];
+}
+
+function validCoordinates(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const longitude = Number(value[0]);
+  const latitude = Number(value[1]);
+  return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+}
+
+function estimatedDistanceKm(first: unknown, second: unknown): number | null {
+  const firstCoordinates = validCoordinates(first);
+  const secondCoordinates = validCoordinates(second);
+  if (!firstCoordinates || !secondCoordinates) return null;
+
+  const [lon1, lat1] = firstCoordinates;
+  const [lon2, lat2] = secondCoordinates;
+  const radians = Math.PI / 180;
+  const latitudeDelta = (lat2 - lat1) * radians;
+  const longitudeDelta = (lon2 - lon1) * radians;
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(longitudeDelta / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, haversine)))) * 10) / 10;
+}
+
+function selectRouteAwareActivity(
+  candidates: PlanServiceItem[],
+  anchor: PlanServiceItem | null,
+  styles: string[],
+): PlanServiceItem | null {
+  if (!candidates.length) return null;
+
+  return [...candidates].sort((a, b) => {
+    // A preference match always wins; distance only chooses the better route
+    // between activities with the same preference relevance.
+    const preferenceDifference = preferenceScore(b, styles) - preferenceScore(a, styles);
+    if (preferenceDifference !== 0) return preferenceDifference;
+
+    const distanceA = anchor ? estimatedDistanceKm(anchor.coordinates, a.coordinates) : null;
+    const distanceB = anchor ? estimatedDistanceKm(anchor.coordinates, b.coordinates) : null;
+    if (distanceA !== null && distanceB !== null && distanceA !== distanceB) return distanceA - distanceB;
+    if (distanceA !== null && distanceB === null) return -1;
+    if (distanceA === null && distanceB !== null) return 1;
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    return a.total_cost_vnd - b.total_cost_vnd;
+  })[0];
+}
+
+function annotateRouteDistances(events: PlanServiceItem[]): PlanServiceItem[] {
+  let previousCoordinates: [number, number] | null = null;
+
+  return events.map((event, index) => {
+    const currentCoordinates = validCoordinates(event.coordinates);
+    const distanceFromPrevious = index === 0
+      ? undefined
+      : estimatedDistanceKm(previousCoordinates, currentCoordinates);
+    previousCoordinates = currentCoordinates;
+
+    return distanceFromPrevious === undefined
+      ? event
+      : { ...event, distance_from_previous_km: distanceFromPrevious };
+  });
+}
+
 function parseDestinationRow(row: any): Destination {
   const hero = row.hero_image || '';
   return {
@@ -193,10 +343,6 @@ export async function getServicesFromDb(destinationId?: string): Promise<any[]> 
         image_url: r.image_url || '',
         booking_url: r.booking_url || '',
         meal_type: r.meal_type || 'breakfast,lunch,dinner',
-        coordinates: safeJson(r.coordinates, null),
-        geocoding_status: r.geocoding_status || 'pending',
-        geocoding_confidence: r.geocoding_confidence == null ? null : Number(r.geocoding_confidence),
-        geocoded_address: r.geocoded_address || '',
       }));
     }
   } catch (err) {
@@ -221,21 +367,16 @@ export async function addServiceDb(srv: any): Promise<any> {
   const subCat = srv.sub_category || srv.subtype || 'standard';
   const name = srv.name || 'Dịch vụ mới';
   const price = Number(srv.price || 0);
-  const rating = Number(srv.rating || 4.5);
-  const duration = Number(srv.duration_mins || 60);
+  const rating = Number(srv.rating ?? 4.5);
+  const duration = Number(srv.duration_mins ?? 60);
   const tags = JSON.stringify(Array.isArray(srv.tags) ? srv.tags : []);
   const img = srv.image_url || '';
   const booking = srv.booking_url || srv.affiliate_url || '';
   const mealType = srv.meal_type || 'breakfast,lunch,dinner';
-  const coordinates = JSON.stringify(Array.isArray(srv.coordinates) ? srv.coordinates : null);
-  const geocodingStatus = srv.geocoding_status || 'pending';
-  const geocodingConfidence = srv.geocoding_confidence == null ? null : Number(srv.geocoding_confidence);
-  const geocodedAddress = srv.geocoded_address || '';
-
   try {
     await sql`
-      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url, meal_type, coordinates, geocoding_status, geocoding_confidence, geocoded_address)
-      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking}, ${mealType}, ${coordinates}, ${geocodingStatus}, ${geocodingConfidence}, ${geocodedAddress})
+      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url, meal_type)
+      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking}, ${mealType})
       ON CONFLICT (id) DO UPDATE SET
         destination_id = EXCLUDED.destination_id,
         category = EXCLUDED.category,
@@ -247,18 +388,15 @@ export async function addServiceDb(srv: any): Promise<any> {
         tags = EXCLUDED.tags,
         image_url = EXCLUDED.image_url,
         booking_url = EXCLUDED.booking_url,
-        meal_type = EXCLUDED.meal_type,
-        coordinates = EXCLUDED.coordinates,
-        geocoding_status = EXCLUDED.geocoding_status,
-        geocoding_confidence = EXCLUDED.geocoding_confidence,
-        geocoded_address = EXCLUDED.geocoded_address
+        meal_type = EXCLUDED.meal_type
     `;
   } catch (err) {
 
     console.error('Error inserting service into Neon DB:', err);
+    throw err;
   }
 
-  return { id, destination_id: destId, category: cat, sub_category: subCat, name, price, rating, duration_mins: duration, tags: Array.isArray(srv.tags) ? srv.tags : [], image_url: img, booking_url: booking, coordinates: srv.coordinates || null, geocoding_status: geocodingStatus };
+  return { id, destination_id: destId, category: cat, sub_category: subCat, name, price, rating, duration_mins: duration, tags: Array.isArray(srv.tags) ? srv.tags : [], image_url: img, booking_url: booking };
 }
 
 export async function updateServiceDb(srv: any): Promise<any> {
@@ -283,12 +421,34 @@ export async function recommendDestinationsDb(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
   const dests = await getDestinationsFromDb();
+  const services = await getServicesFromDb();
   const limit = req.limit || 3;
+  const requestedPreferences =
+    preferencesForCategory(req.preferences, 'stay').length +
+    preferencesForCategory(req.preferences, 'food').length +
+    preferencesForCategory(req.preferences, 'activity').length;
 
-  return dests.slice(0, limit).map((d) => {
+  const recommendations = dests.map((d) => {
     const minCost = Math.round((d.minimum_two_day_cost_vnd || 1500000) * (req.num_days / 2) * Math.max(1, req.people * 0.7));
     const estimated = Math.min(req.total_budget, Math.max(minCost, Math.round(req.total_budget * 0.75)));
     const remaining = Math.max(0, req.total_budget - estimated);
+    const destinationCodes = (DEST_CODE_MAP[d.id] || [d.id, d.code || '']).map((code) => String(code).toUpperCase());
+    const destinationServices = services.filter((service) =>
+      destinationCodes.includes(String(service.destination_id || '').toUpperCase()),
+    );
+
+    const preferenceMatches = (['stay', 'food', 'activity'] as PreferenceCategory[]).reduce(
+      (matches, category) => {
+        const styles = preferencesForCategory(req.preferences, category);
+        return matches + styles.filter((style) =>
+          destinationServices.some((service) => preferenceScore(service, [style]) > 0),
+        ).length;
+      },
+      0,
+    );
+    const preferenceFit = requestedPreferences ? preferenceMatches / requestedPreferences : 0;
+    const budgetFit = minCost <= req.total_budget ? 1 : req.total_budget / Math.max(1, minCost);
+    const fitScore = Math.round(Math.min(10, 4 + preferenceFit * 4.5 + budgetFit * 1.5) * 10) / 10;
 
     return {
       destination: {
@@ -300,9 +460,28 @@ export async function recommendDestinationsDb(
       },
       estimated_minimum_cost_vnd: estimated,
       remaining_vnd: remaining,
-      fit_score: 9.6,
+      fit_score: fitScore,
+      preference_matches: preferenceMatches,
     };
   });
+
+  // First show places satisfying every selected style. If the catalogue has no
+  // full match, show only the destinations with the highest available match
+  // count before falling back to unrelated places.
+  const completeMatches = requestedPreferences > 0
+    ? recommendations.filter((recommendation) => recommendation.preference_matches === requestedPreferences)
+    : [];
+  const highestMatchCount = Math.max(0, ...recommendations.map((recommendation) => recommendation.preference_matches));
+  const bestAvailableMatches = highestMatchCount > 0
+    ? recommendations.filter((recommendation) => recommendation.preference_matches === highestMatchCount)
+    : recommendations;
+  const eligibleRecommendations = completeMatches.length > 0 ? completeMatches : bestAvailableMatches;
+
+  return eligibleRecommendations.sort((a, b) => {
+    if (b.fit_score !== a.fit_score) return b.fit_score - a.fit_score;
+    if (b.remaining_vnd !== a.remaining_vnd) return b.remaining_vnd - a.remaining_vnd;
+    return a.destination.name.localeCompare(b.destination.name, 'vi');
+  }).slice(0, limit).map(({ preference_matches, ...recommendation }) => recommendation);
 }
 
 export async function getSimilarDestinationsDb(
@@ -577,13 +756,14 @@ export async function materializePlanFromSelectionsDb(planState: PlanState): Pro
     };
 
     dayEvents.sort((a, b) => parseTimeToMinutes(a.start_time, a.slot) - parseTimeToMinutes(b.start_time, b.slot));
+    const routedEvents = annotateRouteDistances(dayEvents);
 
-    const dayFoodTotal = dayEvents.filter((e) => e.category === 'food').reduce((sum, e) => sum + e.total_cost_vnd, 0);
-    const dayActTotal = dayEvents.filter((e) => e.category === 'activity' || (e.category as string) === 'activities').reduce((sum, e) => sum + e.total_cost_vnd, 0);
+    const dayFoodTotal = routedEvents.filter((e) => e.category === 'food').reduce((sum, e) => sum + e.total_cost_vnd, 0);
+    const dayActTotal = routedEvents.filter((e) => e.category === 'activity' || (e.category as string) === 'activities').reduce((sum, e) => sum + e.total_cost_vnd, 0);
 
     return {
       day: dayNum,
-      events: dayEvents,
+      events: routedEvents,
       costs: {
         stay: stayCostForDay,
         food: dayFoodTotal,
@@ -645,6 +825,7 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   const stayPriority = req.priorities?.stay || 'normal';
   const stayShare = stayPriority === 'very_important' || stayPriority === 'important' ? 0.50 : stayPriority === 'none' ? 0.30 : 0.40;
   const maxStayBudget = Math.max(800000, req.total_budget * stayShare);
+  const stayStyles = preferencesForCategory(req.preferences, 'stay');
 
   // Filter stays that fit within maxStayBudget for total nights
   const budgetStays = stays.filter((s) => {
@@ -653,9 +834,26 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
   });
 
   let rawStay: any = null;
-  if (budgetStays.length > 0) {
-    // Pick highest rated stay within target stay budget
-    rawStay = [...budgetStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+  const preferredStays = stayStyles.length > 0
+    ? stays.filter((stay) => preferenceScore(stay, stayStyles) > 0)
+    : [];
+  const preferredStaysWithinTripBudget = preferredStays.filter((stay) =>
+    formatDatasetService(stay, req.people, nights).total_cost_vnd <= req.total_budget,
+  );
+
+  if (preferredStaysWithinTripBudget.length > 0) {
+    // The user-selected lodging style is a hard preference. The 40–50% stay
+    // share is only a planning guideline, so do not replace an affordable
+    // villa/resort with a hotel solely because it exceeds that guideline.
+    const preferredWithinTargetShare = preferredStaysWithinTripBudget.filter((stay) =>
+      formatDatasetService(stay, req.people, nights).total_cost_vnd <= maxStayBudget,
+    );
+    rawStay = sortByPreference(
+      preferredWithinTargetShare.length > 0 ? preferredWithinTargetShare : preferredStaysWithinTripBudget,
+      stayStyles,
+    )[0];
+  } else if (budgetStays.length > 0) {
+    rawStay = matchingServicesOrFallback(budgetStays, stayStyles)[0];
   } else if (stays.length > 0) {
     // Fallback 1: Filter stays that fit within 65% of total trip budget
     const affordableStays = stays.filter((s) => {
@@ -664,7 +862,10 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     });
 
     if (affordableStays.length > 0) {
-      rawStay = [...affordableStays].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+      rawStay = matchingServicesOrFallback(
+        affordableStays,
+        stayStyles,
+      )[0];
     } else {
       // Fallback 2: Pick cheapest stay available
       rawStay = [...stays].sort((a, b) => {
@@ -689,8 +890,15 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
 
   const lodgingService = formatDatasetService(rawStay, req.people, nights);
 
-  const foodSource = foods.length > 0 ? foods : (destServices.length > 0 ? destServices : []);
-  const actSource = acts.length > 0 ? acts : (destServices.length > 0 ? destServices : []);
+  const foodSource = matchingServicesOrFallback(
+    foods,
+    preferencesForCategory(req.preferences, 'food'),
+  );
+  const actSource = matchingServicesOrFallback(
+    acts,
+    preferencesForCategory(req.preferences, 'activity'),
+    req.num_days,
+  );
 
   const foodItemsFormatted = foodSource.map((f) => formatDatasetService(f, req.people, nights));
   const actItemsFormatted = actSource.map((a) => formatDatasetService(a, req.people, nights));
@@ -753,19 +961,32 @@ export async function generatePlanDb(req: GeneratePlanRequest): Promise<Material
     selections.push({ service_id: lodgingService.id, day: 0, slot: 'overnight' });
   }
 
+  const remainingActivities = [...uniqueActivities];
+  const activityStyles = preferencesForCategory(req.preferences, 'activity');
   for (let idx = 0; idx < req.num_days; idx++) {
     const dayNum = idx + 1;
     const bfast = getNextUniqueFood('breakfast');
     const lunch = getNextUniqueFood('lunch');
     const dinner = getNextUniqueFood('dinner');
 
-    // Every day receives a different primary activity. Add a second activity
-    // only when another unused option exists, so activities never cross days.
-    const dailyActivity = uniqueActivities[idx];
-    const secondaryActivity = uniqueActivities[req.num_days + idx];
+    // Every day receives different activities. Within the same preference
+    // score, pick the closest next stop to shorten the day's route.
+    const dailyActivity = selectRouteAwareActivity(remainingActivities, bfast, activityStyles);
+    if (dailyActivity) {
+      remainingActivities.splice(remainingActivities.findIndex((activity) => activity.id === dailyActivity.id), 1);
+    }
+    const remainingPrimaryDays = req.num_days - dayNum;
+    const secondaryActivity = remainingActivities.length > remainingPrimaryDays
+      ? selectRouteAwareActivity(remainingActivities, dailyActivity, activityStyles)
+      : null;
+    if (secondaryActivity) {
+      remainingActivities.splice(remainingActivities.findIndex((activity) => activity.id === secondaryActivity.id), 1);
+    }
 
     selections.push({ service_id: bfast.id, day: dayNum, slot: 'breakfast' });
-    selections.push({ service_id: dailyActivity.id, day: dayNum, slot: 'morning' });
+    if (dailyActivity) {
+      selections.push({ service_id: dailyActivity.id, day: dayNum, slot: 'morning' });
+    }
     selections.push({ service_id: lunch.id, day: dayNum, slot: 'lunch' });
     if (secondaryActivity) {
       selections.push({ service_id: secondaryActivity.id, day: dayNum, slot: 'afternoon' });
@@ -809,6 +1030,12 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
     }
   }
 
+  const preferenceCategory: PreferenceCategory = targetCategory === 'food'
+    ? 'food'
+    : targetCategory === 'accommodation' || targetCategory === 'stay'
+      ? 'stay'
+      : 'activity';
+  const preferredStyles = preferencesForCategory(req.plan_state.preferences, preferenceCategory);
   const candidates = services.filter((item) => {
     if (item.id === targetId) return false;
     const destMatch = targetCodes.includes((item.destination_id || '').toUpperCase());
@@ -824,9 +1051,31 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
   });
 
   const nights = Math.max(0, req.plan_state.num_days - 1);
-  const formatted = candidates.map((c) => formatDatasetService(c, req.plan_state.people, nights));
+  const routeOrder: Record<string, number> = {
+    breakfast: 1,
+    morning: 2,
+    lunch: 3,
+    afternoon: 4,
+    dinner: 5,
+    evening: 6,
+  };
+  const targetOrder = routeOrder[targetSlot] || 0;
+  const previousSelection = (req.plan_state.selections || [])
+    .filter((selection) => selection.day === req.target.day && (routeOrder[selection.slot] || 0) < targetOrder)
+    .sort((a, b) => (routeOrder[b.slot] || 0) - (routeOrder[a.slot] || 0))[0];
+  const previousService = previousSelection
+    ? services.find((service) => service.id === previousSelection.service_id)
+    : null;
 
-  // Sort candidates: first those within budget, then by rating (highest first), then by cost (lowest first)
+  const formatted = matchingServicesOrFallback(candidates, preferredStyles).map((candidate) => {
+    const item = formatDatasetService(candidate, req.plan_state.people, nights);
+    const distanceFromPrevious = estimatedDistanceKm(previousService?.coordinates, item.coordinates);
+    return previousService
+      ? { ...item, distance_from_previous_km: distanceFromPrevious }
+      : item;
+  });
+  // Keep budget-eligible options above over-budget ones, then prefer the
+  // traveller's saved styles before rating and cost break ties.
   formatted.sort((a, b) => {
     const costA = a.total_cost_vnd;
     const costB = b.total_cost_vnd;
@@ -834,6 +1083,8 @@ export async function getSwapOptionsDb(req: SwapOptionsRequest): Promise<SwapOpt
     const fitsB = costB <= req.plan_state.total_budget;
     if (fitsA && !fitsB) return -1;
     if (!fitsA && fitsB) return 1;
+    const preferenceDifference = preferenceScore(b, preferredStyles) - preferenceScore(a, preferredStyles);
+    if (preferenceDifference !== 0) return preferenceDifference;
     if (b.rating !== a.rating) return b.rating - a.rating;
     return costA - costB;
   });

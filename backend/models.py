@@ -98,21 +98,9 @@ class ServiceModel(Base):
     image_url = Column(Text, nullable=True)
     booking_url = Column(Text, nullable=True)
     meal_type = Column(String(100), default="breakfast,lunch,dinner")
-    # [longitude, latitude]. Kept as JSON to work with both Neon/PostgreSQL and SQLite.
-    coordinates = Column(JSON, nullable=True)
-    geocoding_status = Column(String(24), nullable=False, default="pending")
-    geocoding_confidence = Column(Float, nullable=True)
-    geocoded_address = Column(Text, nullable=True)
-    geocoded_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def as_dict(self):
-        coordinates = self.coordinates
-        if isinstance(coordinates, str):
-            try:
-                coordinates = json.loads(coordinates)
-            except Exception:
-                coordinates = None
         return {
             "id": self.id,
             "destination_id": self.destination_id,
@@ -126,11 +114,6 @@ class ServiceModel(Base):
             "image_url": self.image_url or "",
             "booking_url": self.booking_url or "",
             "meal_type": self.meal_type or "breakfast,lunch,dinner",
-            "coordinates": coordinates if isinstance(coordinates, list) else None,
-            "geocoding_status": self.geocoding_status or "pending",
-            "geocoding_confidence": self.geocoding_confidence,
-            "geocoded_address": self.geocoded_address or "",
-            "geocoded_at": self.geocoded_at.isoformat() if self.geocoded_at else None,
         }
 
 

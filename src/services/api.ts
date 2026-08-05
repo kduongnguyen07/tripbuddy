@@ -1,7 +1,8 @@
 /**
  * API Service Wrapper
- * Uses Neon for catalogue reads and the FastAPI planning endpoints for
- * recommendations and itinerary operations.
+ * Uses the legacy browser-side planner for catalogue reads and itinerary
+ * operations. This keeps plan generation available when the Vercel Python
+ * function is unavailable.
  */
 
 import {
@@ -20,22 +21,11 @@ import {
   getDestinationsFromDb,
   getSimilarDestinationsDb,
   getServiceIllustrationImage,
+  recommendDestinationsDb,
+  generatePlanDb,
+  getSwapOptionsDb,
+  applySwapDb,
 } from './neonDb';
-import { API_BASE_URL } from '../config/apiConfig';
-
-async function planningRequest<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    const detail = payload?.detail || payload?.message || `Planning API failed (${response.status})`;
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
-  }
-  return normalizePlanningImages(payload) as T;
-}
 
 function normalizePlanningImages(payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') return payload;
@@ -64,11 +54,7 @@ export async function fetchDestinationsApi(): Promise<Destination[]> {
 export async function recommendDestinationsApi(
   req: RecommendDestinationsRequest
 ): Promise<DestinationRecommendation[]> {
-  const response = await planningRequest<{ recommendations: DestinationRecommendation[] }>(
-    '/destinations/recommend',
-    req
-  );
-  return response.recommendations;
+  return recommendDestinationsDb(req);
 }
 
 export async function getSimilarDestinationsApi(
@@ -79,13 +65,13 @@ export async function getSimilarDestinationsApi(
 }
 
 export async function generatePlanApi(req: GeneratePlanRequest): Promise<MaterializedPlan> {
-  return planningRequest<MaterializedPlan>('/plans/generate', req);
+  return normalizePlanningImages(await generatePlanDb(req)) as MaterializedPlan;
 }
 
 export async function getSwapOptionsApi(req: SwapOptionsRequest): Promise<SwapOptionsResponse> {
-  return planningRequest<SwapOptionsResponse>('/plans/swap-options', req);
+  return normalizePlanningImages(await getSwapOptionsDb(req)) as SwapOptionsResponse;
 }
 
 export async function applySwapApi(req: ApplySwapRequest): Promise<MaterializedPlan> {
-  return planningRequest<MaterializedPlan>('/plans/apply-swap', req);
+  return normalizePlanningImages(await applySwapDb(req)) as MaterializedPlan;
 }

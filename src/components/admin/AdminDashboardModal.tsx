@@ -11,10 +11,73 @@ import {
 import { useData } from '../../context/DataContext';
 import { Destination, JourneySlide, HeroConfig, ActivityItem, TravelTipItem } from '../../types';
 import { SafeImage } from '../common/SafeImage';
-import { CoordinatePicker } from '../common/CoordinatePicker';
 import fullDatasetRaw from '../../../backend/tripbuddy_full_dataset_500.json';
 import { getServicesFromDb, addServiceDb, deleteServiceDb } from '../../services/neonDb';
 
+type BulkServiceImport = Record<string, any>;
+
+interface BulkImportIssue {
+  row: number;
+  message: string;
+}
+
+const BULK_IMPORT_BATCH_SIZE = 10;
+
+function parseBulkServices(payload: unknown): { services: BulkServiceImport[]; issues: BulkImportIssue[] } {
+  const rows = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === 'object' && Array.isArray((payload as { services?: unknown }).services)
+      ? (payload as { services: unknown[] }).services
+      : null;
+
+  if (!rows) {
+    return { services: [], issues: [{ row: 0, message: 'File phải là một mảng JSON dịch vụ.' }] };
+  }
+
+  const issues: BulkImportIssue[] = [];
+  const ids = new Set<string>();
+  const services = rows.flatMap((row, index) => {
+    const rowNumber = index + 1;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      issues.push({ row: rowNumber, message: 'Dòng phải là một đối tượng dịch vụ.' });
+      return [];
+    }
+
+    const service = { ...row } as BulkServiceImport;
+    const id = typeof service.id === 'string' ? service.id.trim() : '';
+    const destinationId = typeof service.destination_id === 'string' ? service.destination_id.trim() : '';
+    const name = typeof service.name === 'string' ? service.name.trim() : '';
+    const price = Number(service.price);
+    const rating = Number(service.rating);
+    const duration = Number(service.duration_mins);
+
+    if (!id) issues.push({ row: rowNumber, message: 'Thiếu ID dịch vụ.' });
+    else if (ids.has(id)) issues.push({ row: rowNumber, message: `ID trùng: ${id}.` });
+    else ids.add(id);
+    if (!destinationId) issues.push({ row: rowNumber, message: 'Thiếu destination_id.' });
+    if (!name) issues.push({ row: rowNumber, message: 'Thiếu tên dịch vụ.' });
+    if (!service.category || typeof service.category !== 'string') issues.push({ row: rowNumber, message: 'Thiếu category.' });
+    if (!Number.isFinite(price) || price < 0) issues.push({ row: rowNumber, message: 'price phải là số không âm.' });
+    if (!Number.isFinite(rating) || rating < 0 || rating > 5) issues.push({ row: rowNumber, message: 'rating phải nằm trong khoảng 0–5.' });
+    if (!Number.isFinite(duration) || duration < 0) issues.push({ row: rowNumber, message: 'duration_mins phải là số không âm.' });
+    return [{
+      ...service,
+      id,
+      destination_id: destinationId,
+      name,
+      price,
+      rating,
+      duration_mins: duration,
+      tags: Array.isArray(service.tags)
+        ? service.tags.filter((tag: unknown): tag is string => typeof tag === 'string')
+        : typeof service.tags === 'string'
+          ? service.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean)
+          : [],
+    }];
+  });
+
+  return { services, issues };
+}
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -39,6 +102,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     return fullDatasetRaw as any[];
   });
   const [isServicesLoading, setIsServicesLoading] = useState<boolean>(false);
+  const [bulkImportFileName, setBulkImportFileName] = useState<string | null>(null);
+  const [bulkImportServices, setBulkImportServices] = useState<BulkServiceImport[]>([]);
+  const [bulkImportIssues, setBulkImportIssues] = useState<BulkImportIssue[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
 
   const [serviceDestFilter, setServiceDestFilter] = useState<string>('ALL');
   const [serviceCatFilter, setServiceCatFilter] = useState<string>('ALL');
@@ -165,12 +232,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       tags: tagsArray,
       image_url: editingService.image_url || '',
       booking_url: editingService.booking_url || '',
-      coordinates: Array.isArray(editingService.coordinates) && editingService.coordinates.length === 2
-        ? editingService.coordinates.map((value: any) => Number(value))
-        : null,
-      geocoding_status: editingService.geocoding_status || 'pending',
-      geocoding_confidence: editingService.geocoding_confidence == null ? null : Number(editingService.geocoding_confidence),
-      geocoded_address: editingService.geocoded_address || '',
     };
 
     try {
@@ -206,6 +267,46 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
     link.click();
     URL.revokeObjectURL(url);
     showToast('Đã xuất file dataset tripbuddy_full_dataset_500.json!');
+  };
+
+  const handleBulkServiceFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const { services, issues } = parseBulkServices(parsed);
+      setBulkImportFileName(file.name);
+      setBulkImportServices(services);
+      setBulkImportIssues(issues);
+    } catch {
+      setBulkImportFileName(file.name);
+      setBulkImportServices([]);
+      setBulkImportIssues([{ row: 0, message: 'Không thể đọc JSON. Hãy xuất file mẫu từ nút "Xuất File Dataset" trước.' }]);
+    }
+  };
+
+  const handleBulkServiceImport = async () => {
+    if (!bulkImportServices.length || bulkImportIssues.length || isBulkImporting) return;
+    if (!window.confirm(`Cập nhật ${bulkImportServices.length} dịch vụ từ file "${bulkImportFileName}"? Các dịch vụ trùng ID sẽ được ghi đè.`)) return;
+
+    setIsBulkImporting(true);
+    try {
+      for (let start = 0; start < bulkImportServices.length; start += BULK_IMPORT_BATCH_SIZE) {
+        const batch = bulkImportServices.slice(start, start + BULK_IMPORT_BATCH_SIZE);
+        await Promise.all(batch.map((service) => addServiceDb(service)));
+      }
+      await fetchServicesFromDb();
+      setBulkImportFileName(null);
+      setBulkImportServices([]);
+      showToast(`Đã cập nhật ${bulkImportServices.length} dịch vụ từ file JSON.`);
+    } catch (error) {
+      console.error('Bulk service import failed:', error);
+      showToast('Import bị dừng do lỗi kết nối. Hãy xuất lại dữ liệu để kiểm tra các bản ghi đã cập nhật.');
+    } finally {
+      setIsBulkImporting(false);
+    }
   };
 
   // Save Hero Config
@@ -816,8 +917,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                           tags: ['luxury', 'scenic_view'],
                           image_url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
                           booking_url: '',
-                          coordinates: null,
-                          geocoding_status: 'pending',
                         });
                         setIsNewService(true);
                       }}
@@ -827,6 +926,49 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                       <span>Thêm Dịch Vụ Mới</span>
                     </button>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs text-slate-700">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-extrabold text-slate-900">Cập nhật hàng loạt bằng JSON</p>
+                      <p className="mt-1 text-slate-500">Xuất file hiện tại, chỉnh sửa trong trình soạn thảo, rồi chọn lại file. ID trùng sẽ được cập nhật; ID mới sẽ được thêm.</p>
+                    </div>
+                    <label className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 font-extrabold text-white shadow-sm transition-colors hover:bg-sky-500">
+                      <Upload className="h-4 w-4" />
+                      <span>Chọn file JSON</span>
+                      <input type="file" accept="application/json,.json" className="hidden" onChange={handleBulkServiceFileSelected} />
+                    </label>
+                  </div>
+
+                  {bulkImportFileName && (
+                    <div className="mt-3 rounded-xl bg-white p-3 ring-1 ring-sky-100">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-semibold text-slate-700">File: {bulkImportFileName} · {bulkImportServices.length} dịch vụ trong file</span>
+                        <button
+                          type="button"
+                          disabled={Boolean(bulkImportIssues.length) || !bulkImportServices.length || isBulkImporting}
+                          onClick={handleBulkServiceImport}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 font-extrabold text-white transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          {isBulkImporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
+                          <span>{isBulkImporting ? 'Đang import...' : 'Import và cập nhật'}</span>
+                        </button>
+                      </div>
+
+                      {bulkImportIssues.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-rose-700">
+                          <p className="font-extrabold">Cần sửa {bulkImportIssues.length} lỗi trước khi import:</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            {bulkImportIssues.slice(0, 5).map((issue, index) => (
+                              <li key={`${issue.row}-${index}`}>{issue.row ? `Dòng ${issue.row}: ` : ''}{issue.message}</li>
+                            ))}
+                          </ul>
+                          {bulkImportIssues.length > 5 && <p className="mt-1">… và {bulkImportIssues.length - 5} lỗi khác.</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Edit / Add Service Modal Form */}
@@ -973,46 +1115,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                           placeholder="Ví dụ: luxury, scenic_view, hotel, khach_san"
                         />
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3.5 bg-sky-50 rounded-2xl border border-sky-200">
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Kinh Ä‘á»™ (Longitude)</label>
-                          <input
-                            type="number"
-                            step="0.000001"
-                            value={editingService.coordinates?.[0] ?? ''}
-                            onChange={(e) => setEditingService({
-                              ...editingService,
-                              coordinates: [Number(e.target.value), Number(editingService.coordinates?.[1] || 0)],
-                              geocoding_status: 'verified',
-                            })}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
-                            placeholder="105.8542"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">VÄ© Ä‘á»™ (Latitude)</label>
-                          <input
-                            type="number"
-                            step="0.000001"
-                            value={editingService.coordinates?.[1] ?? ''}
-                            onChange={(e) => setEditingService({
-                              ...editingService,
-                              coordinates: [Number(editingService.coordinates?.[0] || 0), Number(e.target.value)],
-                              geocoding_status: 'verified',
-                            })}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
-                            placeholder="21.0285"
-                          />
-                        </div>
-                        <div className="flex items-end text-[11px] text-sky-800 font-semibold">
-                          Tráº¡ng thÃ¡i: {editingService.geocoding_status || 'pending'}
-                        </div>
-                      </div>
-                      <CoordinatePicker
-                        coordinates={editingService.coordinates}
-                        onChange={(coordinates) => setEditingService({ ...editingService, coordinates, geocoding_status: 'verified' })}
-                      />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
