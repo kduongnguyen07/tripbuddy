@@ -343,10 +343,6 @@ export async function getServicesFromDb(destinationId?: string): Promise<any[]> 
         image_url: r.image_url || '',
         booking_url: r.booking_url || '',
         meal_type: r.meal_type || 'breakfast,lunch,dinner',
-        coordinates: safeJson(r.coordinates, null),
-        geocoding_status: r.geocoding_status || 'pending',
-        geocoding_confidence: r.geocoding_confidence == null ? null : Number(r.geocoding_confidence),
-        geocoded_address: r.geocoded_address || '',
       }));
     }
   } catch (err) {
@@ -377,15 +373,10 @@ export async function addServiceDb(srv: any): Promise<any> {
   const img = srv.image_url || '';
   const booking = srv.booking_url || srv.affiliate_url || '';
   const mealType = srv.meal_type || 'breakfast,lunch,dinner';
-  const coordinates = JSON.stringify(Array.isArray(srv.coordinates) ? srv.coordinates : null);
-  const geocodingStatus = srv.geocoding_status || 'pending';
-  const geocodingConfidence = srv.geocoding_confidence == null ? null : Number(srv.geocoding_confidence);
-  const geocodedAddress = srv.geocoded_address || '';
-
   try {
     await sql`
-      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url, meal_type, coordinates, geocoding_status, geocoding_confidence, geocoded_address)
-      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking}, ${mealType}, ${coordinates}, ${geocodingStatus}, ${geocodingConfidence}, ${geocodedAddress})
+      INSERT INTO services (id, destination_id, category, sub_category, name, price, rating, duration_mins, tags, image_url, booking_url, meal_type)
+      VALUES (${id}, ${destId}, ${cat}, ${subCat}, ${name}, ${price}, ${rating}, ${duration}, ${tags}, ${img}, ${booking}, ${mealType})
       ON CONFLICT (id) DO UPDATE SET
         destination_id = EXCLUDED.destination_id,
         category = EXCLUDED.category,
@@ -397,11 +388,7 @@ export async function addServiceDb(srv: any): Promise<any> {
         tags = EXCLUDED.tags,
         image_url = EXCLUDED.image_url,
         booking_url = EXCLUDED.booking_url,
-        meal_type = EXCLUDED.meal_type,
-        coordinates = EXCLUDED.coordinates,
-        geocoding_status = EXCLUDED.geocoding_status,
-        geocoding_confidence = EXCLUDED.geocoding_confidence,
-        geocoded_address = EXCLUDED.geocoded_address
+        meal_type = EXCLUDED.meal_type
     `;
   } catch (err) {
 
@@ -409,7 +396,7 @@ export async function addServiceDb(srv: any): Promise<any> {
     throw err;
   }
 
-  return { id, destination_id: destId, category: cat, sub_category: subCat, name, price, rating, duration_mins: duration, tags: Array.isArray(srv.tags) ? srv.tags : [], image_url: img, booking_url: booking, coordinates: srv.coordinates || null, geocoding_status: geocodingStatus };
+  return { id, destination_id: destId, category: cat, sub_category: subCat, name, price, rating, duration_mins: duration, tags: Array.isArray(srv.tags) ? srv.tags : [], image_url: img, booking_url: booking };
 }
 
 export async function updateServiceDb(srv: any): Promise<any> {

@@ -80,10 +80,6 @@ def seed_database():
                             tags=s.get("tags", []),
                             image_url=s.get("image_url", ""),
                             booking_url=s.get("booking_url", ""),
-                            coordinates=s.get("coordinates"),
-                            geocoding_status=s.get("geocoding_status", "pending"),
-                            geocoding_confidence=s.get("geocoding_confidence"),
-                            geocoded_address=s.get("geocoded_address", ""),
                         )
                     )
             if new_services:

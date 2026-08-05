@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Generator
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Automatically load .env file from project root if present
@@ -81,30 +81,6 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-
-
-def ensure_service_coordinates_schema() -> None:
-    """Add coordinate columns to an existing installation without requiring Alembic.
-
-    The checked-in SQL migration remains the source of truth for Neon. This
-    small compatibility step keeps local SQLite databases created by older
-    TripBuddy versions usable after an upgrade.
-    """
-    inspector = inspect(engine)
-    if "services" not in inspector.get_table_names():
-        return
-    existing = {column["name"] for column in inspector.get_columns("services")}
-    additions = {
-        "coordinates": "JSON",
-        "geocoding_status": "VARCHAR(24) DEFAULT 'pending'",
-        "geocoding_confidence": "FLOAT",
-        "geocoded_address": "TEXT",
-        "geocoded_at": "DATETIME",
-    }
-    with engine.begin() as connection:
-        for name, definition in additions.items():
-            if name not in existing:
-                connection.execute(text(f"ALTER TABLE services ADD COLUMN {name} {definition}"))
 
 
 def get_db() -> Generator:

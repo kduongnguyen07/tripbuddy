@@ -96,7 +96,7 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
             hash_idx = sum(ord(c) for c in s.id) % 3
             time_window = ("morning", "afternoon", "evening")[hash_idx]
 
-    raw_coordinates = s.coordinates
+    raw_coordinates = getattr(s, "coordinates", None)
     if isinstance(raw_coordinates, str):
         try:
             raw_coordinates = json.loads(raw_coordinates)
@@ -127,8 +127,12 @@ def _srv_model_to_service(s: ServiceModel) -> Service:
         source="neon_postgres",
         updated_at="2026-07-26",
         coordinates=coordinates,
-        geocoding_status=s.geocoding_status or "pending",
-        geocoding_confidence=float(s.geocoding_confidence) if s.geocoding_confidence is not None else None,
+        geocoding_status=getattr(s, "geocoding_status", None) or "pending",
+        geocoding_confidence=(
+            float(geocoding_confidence)
+            if (geocoding_confidence := getattr(s, "geocoding_confidence", None)) is not None
+            else None
+        ),
         meal_slots=meal_slots,
     )
 

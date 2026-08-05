@@ -60,10 +60,6 @@ function parseBulkServices(payload: unknown): { services: BulkServiceImport[]; i
     if (!Number.isFinite(price) || price < 0) issues.push({ row: rowNumber, message: 'price phải là số không âm.' });
     if (!Number.isFinite(rating) || rating < 0 || rating > 5) issues.push({ row: rowNumber, message: 'rating phải nằm trong khoảng 0–5.' });
     if (!Number.isFinite(duration) || duration < 0) issues.push({ row: rowNumber, message: 'duration_mins phải là số không âm.' });
-    if (service.coordinates != null && (!Array.isArray(service.coordinates) || service.coordinates.length !== 2 || service.coordinates.some((value: unknown) => !Number.isFinite(Number(value))))) {
-      issues.push({ row: rowNumber, message: 'coordinates phải là [vĩ độ, kinh độ] hoặc null.' });
-    }
-
     return [{
       ...service,
       id,
@@ -236,12 +232,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
       tags: tagsArray,
       image_url: editingService.image_url || '',
       booking_url: editingService.booking_url || '',
-      coordinates: Array.isArray(editingService.coordinates) && editingService.coordinates.length === 2
-        ? editingService.coordinates.map((value: any) => Number(value))
-        : null,
-      geocoding_status: editingService.geocoding_status || 'pending',
-      geocoding_confidence: editingService.geocoding_confidence == null ? null : Number(editingService.geocoding_confidence),
-      geocoded_address: editingService.geocoded_address || '',
     };
 
     try {
@@ -927,8 +917,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({ isOpen
                           tags: ['luxury', 'scenic_view'],
                           image_url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
                           booking_url: '',
-                          coordinates: null,
-                          geocoding_status: 'pending',
                         });
                         setIsNewService(true);
                       }}
